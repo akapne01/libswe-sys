@@ -4,3 +4,4 @@ extern crate strum_macros;
 mod raw;
 pub mod sweconst;
 pub mod swerust;
+pub mod constants;

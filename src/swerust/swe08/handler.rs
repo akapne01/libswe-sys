@@ -1,5 +1,5 @@
 use crate::raw;
-use crate::sweconst::Calandar;
+use crate::sweconst::Calendar;
 use std::ffi::{CStr, CString};
 // use std::os::raw::c_char;
 
@@ -11,10 +11,10 @@ pub fn julday(
     month: i32,
     day: i32,
     hour: f64,
-    calandar: Calandar,
+    calendar: Calendar,
 ) -> f64 {
     let result: f64 =
-        unsafe { raw::swe_julday(year, month, day, hour, calandar as i32) };
+        unsafe { raw::swe_julday(year, month, day, hour, calendar as i32) };
     result
 }
 
@@ -91,7 +91,7 @@ pub fn utc_to_jd(
     hour: i32,
     min: i32,
     sec: f64,
-    calandar: Calandar,
+    calendar: Calendar,
 ) -> UtcToJdResult {
     let mut dret = [0.0; 2];
     let mut serr = [0; 255];
@@ -105,7 +105,7 @@ pub fn utc_to_jd(
             hour,
             min,
             sec,
-            calandar as i32,
+            calendar as i32,
             p_dret,
             p_serr,
         );

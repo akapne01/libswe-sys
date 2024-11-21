@@ -1,7 +1,7 @@
-use crate::raw;
+use crate::{ constants::CalculationFlags, raw };
 use crate::sweconst::Bodies;
 use crate::swerust;
-use std::ffi::{CStr, CString};
+use std::ffi::{ CStr, CString };
 
 /*
  * 3. The functions swe_calc_ut() and swe_calc()
@@ -37,6 +37,13 @@ pub struct CalcUtResult {
     pub serr: String,
 }
 
+#[derive(Debug)]
+pub struct DeclinationResult {
+    pub declination: f64,
+    pub status: i32,
+    pub serr: String,
+}
+
 pub fn calc_ut(tjd_ut: f64, ipl: Bodies, iflag: i32) -> CalcUtResult {
     let mut xx: [f64; 6] = [0.0; 6];
     let mut serr = [0; 255];
@@ -46,20 +53,11 @@ pub fn calc_ut(tjd_ut: f64, ipl: Bodies, iflag: i32) -> CalcUtResult {
         let p_serr = serr.as_mut_ptr();
         let status;
         if ipl == Bodies::SouthNode {
-            status = raw::swe_calc_ut(
-                tjd_ut,
-                Bodies::TrueNode as i32,
-                iflag,
-                p_xx,
-                p_serr,
-            );
+            status = raw::swe_calc_ut(tjd_ut, Bodies::TrueNode as i32, iflag, p_xx, p_serr);
         } else {
             status = raw::swe_calc_ut(tjd_ut, ipl as i32, iflag, p_xx, p_serr);
         }
-        let s_serr = CString::from(CStr::from_ptr(p_serr))
-            .to_str()
-            .unwrap()
-            .to_string();
+        let s_serr = CString::from(CStr::from_ptr(p_serr)).to_str().unwrap().to_string();
         if ipl == Bodies::SouthNode {
             xx[0] += 180.0;
             if xx[0] >= 360.0 {
@@ -80,15 +78,50 @@ pub fn calc_ut(tjd_ut: f64, ipl: Bodies, iflag: i32) -> CalcUtResult {
     result
 }
 
+pub fn calc_ut_declination(tjd_ut: f64, body: Bodies) -> DeclinationResult {
+    let mut xx: [f64; 6] = [0.0; 6];
+    let mut serr = [0; 255];
+    let result;
+    result = unsafe {
+        let p_xx = xx.as_mut_ptr();
+        let p_serr = serr.as_mut_ptr();
+        let status;
+        if body == Bodies::SouthNode {
+            status = raw::swe_calc_ut(
+                tjd_ut,
+                Bodies::TrueNode as i32,
+                CalculationFlags::EQUATORIAL_POSITIONS,
+                p_xx,
+                p_serr
+            );
+        } else {
+            status = raw::swe_calc_ut(
+                tjd_ut,
+                body as i32,
+                CalculationFlags::EQUATORIAL_POSITIONS,
+                p_xx,
+                p_serr
+            );
+        }
+        let s_serr = CString::from(CStr::from_ptr(p_serr)).to_str().unwrap().to_string();
+        if body == Bodies::SouthNode {
+            xx[0] += 180.0;
+            if xx[0] >= 360.0 {
+                xx[0] -= 360.0;
+            }
+        }
+        DeclinationResult {
+            declination: xx[1],
+            serr: s_serr,
+            status,
+        }
+    };
+    result
+}
+
 /// Fortuna Part
 /// Only lng is valid, the speed is unknow because this object is calculated
-pub fn calc_ut_fp(
-    tjd_ut: f64,
-    geolat: f64,
-    geolong: f64,
-    hsys: char,
-    iflag: i32,
-) -> CalcUtResult {
+pub fn calc_ut_fp(tjd_ut: f64, geolat: f64, geolong: f64, hsys: char, iflag: i32) -> CalcUtResult {
     let ipl = Bodies::FortunaPart;
     let mut xx: [f64; 6] = [0.0; 6];
     let mut serr = [0; 255];
@@ -96,21 +129,12 @@ pub fn calc_ut_fp(
         let p_xx = xx.as_mut_ptr();
         let p_serr = serr.as_mut_ptr();
         let status = raw::swe_calc_ut(tjd_ut, ipl as i32, iflag, p_xx, p_serr);
-        let s_serr = CString::from(CStr::from_ptr(p_serr))
-            .to_str()
-            .unwrap()
-            .to_string();
+        let s_serr = CString::from(CStr::from_ptr(p_serr)).to_str().unwrap().to_string();
         let mut xx_sun: [f64; 6] = [0.0; 6];
         let mut xx_moon: [f64; 6] = [0.0; 6];
         let p_xx_sun = xx_sun.as_mut_ptr();
         let p_serr_sun = serr.as_mut_ptr();
-        let _status_sun = raw::swe_calc_ut(
-            tjd_ut,
-            Bodies::Sun as i32,
-            iflag,
-            p_xx_sun,
-            p_serr_sun,
-        );
+        let _status_sun = raw::swe_calc_ut(tjd_ut, Bodies::Sun as i32, iflag, p_xx_sun, p_serr_sun);
         let p_xx_moon = xx_moon.as_mut_ptr();
         let p_serr_moon = serr.as_mut_ptr();
         let _status_moon = raw::swe_calc_ut(
@@ -118,18 +142,11 @@ pub fn calc_ut_fp(
             Bodies::Moon as i32,
             iflag,
             p_xx_moon,
-            p_serr_moon,
+            p_serr_moon
         );
-        let _s_serr_sun = CString::from(CStr::from_ptr(p_serr_sun))
-            .to_str()
-            .unwrap()
-            .to_string();
-        let _s_serr_moon = CString::from(CStr::from_ptr(p_serr_moon))
-            .to_str()
-            .unwrap()
-            .to_string();
-        let result_houses =
-            swerust::handler_swe14::houses(tjd_ut, geolat, geolong, hsys);
+        let _s_serr_sun = CString::from(CStr::from_ptr(p_serr_sun)).to_str().unwrap().to_string();
+        let _s_serr_moon = CString::from(CStr::from_ptr(p_serr_moon)).to_str().unwrap().to_string();
+        let result_houses = swerust::handler_swe14::houses(tjd_ut, geolat, geolong, hsys);
         let asc_lon = result_houses.cusps[1];
         let mc_lon = result_houses.cusps[10];
         let mc_lat = 0.0;
@@ -139,7 +156,7 @@ pub fn calc_ut_fp(
             compute_sun.0,
             compute_sun.1,
             compute_mc.0,
-            compute_mc.1,
+            compute_mc.1
         );
         /*println!(
             "sw_is_diurnal: {}asc: {}moon: {}sun: {}",
@@ -191,27 +208,18 @@ fn eq_coords(lon: f64, lat: f64) -> (f64, f64) {
     let epson = (23.44_f64).to_radians(); // the earth inclinaison
 
     // Declinaison in radian
-    let decl = (epson.sin() * lambda.sin() * beta.cos()
-        + epson.cos() * beta.sin())
-    .asin();
+    let decl = (epson.sin() * lambda.sin() * beta.cos() + epson.cos() * beta.sin()).asin();
 
     // Equatorial distance
-    let ed = (lambda.cos() * beta.cos() / decl.cos()).acos();
+    let ed = ((lambda.cos() * beta.cos()) / decl.cos()).acos();
 
     // RA in radian
-    let mut ra = if lon < 100.0 {
-        ed
-    } else {
-        (360.0_f64).to_radians() - ed
-    };
+    let mut ra = if lon < 100.0 { ed } else { (360.0_f64).to_radians() - ed };
 
     // Correctness of RA if longitude is close to 0° or 180° in a radius of 5°
-    if (closest_distance(lon, 0.0)).abs() < 5.0
-        || (closest_distance(lon, 180.0)).abs() < 5.0
-    {
+    if closest_distance(lon, 0.0).abs() < 5.0 || closest_distance(lon, 180.0).abs() < 5.0 {
         let a = ra.sin() * decl.cos();
-        let b =
-            epson.cos() * lambda.sin() * beta.cos() - epson.sin() * beta.sin();
+        let b = epson.cos() * lambda.sin() * beta.cos() - epson.sin() * beta.sin();
         if (a - b).abs() > 0.0003 {
             ra = (360.0_f64).to_radians() - ra;
         }
@@ -227,7 +235,7 @@ fn eq_coords(lon: f64, lat: f64) -> (f64, f64) {
 /// is within its diurnal semi-arc.
 fn is_above_horizon(ra: f64, decl: f64, mc_ra: f64, lat: f64) -> bool {
     let d_arc_tulpe = dnarcs(decl, lat);
-    let dist = (closest_distance(mc_ra, ra)).abs();
+    let dist = closest_distance(mc_ra, ra).abs();
     dist <= d_arc_tulpe.0 / 2.0 + 0.0003 // 1 arc-second
 }
 
@@ -258,5 +266,49 @@ fn znorm(mut angle: f64) -> f64 {
         angle
     } else {
         angle - 180.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use assert_approx_eq::assert_approx_eq;
+    use swerust::{ handler_swe02::set_ephe_path, handler_swe08::{ utc_time_zone, utc_to_jd } };
+    use crate::{ constants::{ CalculationFlags, EPHEMERIS_PATH }, sweconst::Calendar };
+    use super::*;
+
+    #[test]
+    fn test_calc_ut() {
+        set_ephe_path(EPHEMERIS_PATH);
+        let date = get_test_date_time();
+        let result = calc_ut(date, Bodies::Jupiter, CalculationFlags::SPEED_PRECISION);
+        println!("result: {:?}", result);
+        assert_approx_eq!(result.longitude, 78.4056407833763);
+        assert_approx_eq!(result.latitude, -0.6995066240460757);
+        assert_approx_eq!(result.distance_au, 4.123774890302974);
+        assert_approx_eq!(result.speed_longitude, -0.12303505930037291);
+        assert_approx_eq!(result.speed_latitude, 0.0013794304978785449);
+        assert_approx_eq!(result.speed_distance_au, -0.004590414207035888);
+    }
+
+    #[test]
+    fn test_calc_ut_declination() {
+        set_ephe_path(EPHEMERIS_PATH);
+        let test_date_time = get_test_date_time();
+        let result = calc_ut_declination(test_date_time, Bodies::Jupiter);
+        assert_approx_eq!(result.declination, 22.235712853294377);
+    }
+
+    pub fn get_test_date_time() -> f64 {
+        let utc_time_zone = utc_time_zone(2024, 11, 21, 16, 10, 0.0, 2.0);
+        let jd = utc_to_jd(
+            utc_time_zone.year[0],
+            utc_time_zone.month[0],
+            utc_time_zone.day[0],
+            utc_time_zone.hour[0],
+            utc_time_zone.min[0],
+            utc_time_zone.sec[0],
+            Calendar::Gregorian
+        );
+        jd.julian_day_ut
     }
 }

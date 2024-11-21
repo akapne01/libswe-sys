@@ -2,10 +2,10 @@ extern crate serde;
 extern crate serde_derive;
 extern crate serde_json;
 extern crate strum;
-use crate::swerust::handler_swe17::{split_deg, SplitDegResult};
+use crate::swerust::handler_swe17::{ split_deg, SplitDegResult };
 use num_derive::FromPrimitive;
 //use num_traits::FromPrimitive;
-use serde::{Deserialize, Serialize};
+use serde::{ Deserialize, Serialize };
 use strum::AsStaticRef;
 
 /// Language available (for crate "astrology", "libastro")
@@ -34,18 +34,21 @@ impl Theme {
     /// Colors (for crate "astrology")
     pub fn color(self, color: Colors) -> i32 {
         match color {
-            Colors::Primary => match self {
-                Theme::Light => 0x000000, // Black
-                Theme::Dark => 0xFFFFFF,  // White
-            },
-            Colors::Secondary => match self {
-                Theme::Light => 0xFFFFFF, // White
-                Theme::Dark => 0x000000,  // Black
-            },
-            Colors::Background => match self {
-                Theme::Light => 0xFFFFFF, // White
-                Theme::Dark => 0x000000,  // Black
-            },
+            Colors::Primary =>
+                match self {
+                    Theme::Light => 0x000000, // Black
+                    Theme::Dark => 0xffffff, // White
+                }
+            Colors::Secondary =>
+                match self {
+                    Theme::Light => 0xffffff, // White
+                    Theme::Dark => 0x000000, // Black
+                }
+            Colors::Background =>
+                match self {
+                    Theme::Light => 0xffffff, // White
+                    Theme::Dark => 0x000000, // Black
+                }
         }
     }
 }
@@ -71,34 +74,36 @@ impl Signs {
     /// Text for translation
     pub fn text(self, lang: Language) -> String {
         match lang {
-            Language::English => match self {
-                Signs::Aries => "Aries".to_string(),
-                Signs::Taurus => "Taurus".to_string(),
-                Signs::Gemini => "Gemini".to_string(),
-                Signs::Cancer => "Cancer".to_string(),
-                Signs::Leo => "Leo".to_string(),
-                Signs::Virgo => "Virgo".to_string(),
-                Signs::Libra => "Libra".to_string(),
-                Signs::Scorpio => "Scorpio".to_string(),
-                Signs::Sagittarius => "Sagittarius".to_string(),
-                Signs::Capricorn => "Capricorn".to_string(),
-                Signs::Aquarius => "Aquarius".to_string(),
-                Signs::Pisces => "Pisces".to_string(),
-            },
-            Language::French => match self {
-                Signs::Aries => "Belier".to_string(),
-                Signs::Taurus => "Taureau".to_string(),
-                Signs::Gemini => "Gemaux".to_string(),
-                Signs::Cancer => "Cancer".to_string(),
-                Signs::Leo => "Lio".to_string(),
-                Signs::Virgo => "Vierge".to_string(),
-                Signs::Libra => "Balance".to_string(),
-                Signs::Scorpio => "Scorpion".to_string(),
-                Signs::Sagittarius => "Sagittaire".to_string(),
-                Signs::Capricorn => "Capricorne".to_string(),
-                Signs::Aquarius => "Verseau".to_string(),
-                Signs::Pisces => "Poisson".to_string(),
-            },
+            Language::English =>
+                match self {
+                    Signs::Aries => "Aries".to_string(),
+                    Signs::Taurus => "Taurus".to_string(),
+                    Signs::Gemini => "Gemini".to_string(),
+                    Signs::Cancer => "Cancer".to_string(),
+                    Signs::Leo => "Leo".to_string(),
+                    Signs::Virgo => "Virgo".to_string(),
+                    Signs::Libra => "Libra".to_string(),
+                    Signs::Scorpio => "Scorpio".to_string(),
+                    Signs::Sagittarius => "Sagittarius".to_string(),
+                    Signs::Capricorn => "Capricorn".to_string(),
+                    Signs::Aquarius => "Aquarius".to_string(),
+                    Signs::Pisces => "Pisces".to_string(),
+                }
+            Language::French =>
+                match self {
+                    Signs::Aries => "Belier".to_string(),
+                    Signs::Taurus => "Taureau".to_string(),
+                    Signs::Gemini => "Gemaux".to_string(),
+                    Signs::Cancer => "Cancer".to_string(),
+                    Signs::Leo => "Lio".to_string(),
+                    Signs::Virgo => "Vierge".to_string(),
+                    Signs::Libra => "Balance".to_string(),
+                    Signs::Scorpio => "Scorpion".to_string(),
+                    Signs::Sagittarius => "Sagittaire".to_string(),
+                    Signs::Capricorn => "Capricorne".to_string(),
+                    Signs::Aquarius => "Verseau".to_string(),
+                    Signs::Pisces => "Poisson".to_string(),
+                }
         }
     }
 
@@ -139,37 +144,41 @@ impl Element {
     /// Text for translation
     pub fn text(self, lang: Language) -> String {
         match lang {
-            Language::English => match self {
-                Element::Fire => "Fire".to_string(),
-                Element::Earth => "Earth".to_string(),
-                Element::Wind => "Wind".to_string(),
-                Element::Water => "Water".to_string(),
-            },
-            Language::French => match self {
-                Element::Fire => "Feu".to_string(),
-                Element::Earth => "Terre".to_string(),
-                Element::Wind => "Wind".to_string(),
-                Element::Water => "Water".to_string(),
-            },
+            Language::English =>
+                match self {
+                    Element::Fire => "Fire".to_string(),
+                    Element::Earth => "Earth".to_string(),
+                    Element::Wind => "Wind".to_string(),
+                    Element::Water => "Water".to_string(),
+                }
+            Language::French =>
+                match self {
+                    Element::Fire => "Feu".to_string(),
+                    Element::Earth => "Terre".to_string(),
+                    Element::Wind => "Wind".to_string(),
+                    Element::Water => "Water".to_string(),
+                }
         }
     }
 
     /// Color
     pub fn color(self, theme: Theme) -> u32 {
         match theme {
-            Theme::Light => match self {
-                Element::Fire => 0xFF0000,  // Red
-                Element::Earth => 0xFFC200, // Orange/Yellow
-                Element::Wind => 0x00C42A,  // Green
-                Element::Water => 0x0B34FF, // Blue
-            },
+            Theme::Light =>
+                match self {
+                    Element::Fire => 0xff0000, // Red
+                    Element::Earth => 0xffc200, // Orange/Yellow
+                    Element::Wind => 0x00c42a, // Green
+                    Element::Water => 0x0b34ff, // Blue
+                }
             // To do
-            Theme::Dark => match self {
-                Element::Fire => 0xFF0000,  // Red
-                Element::Earth => 0xFFC200, // Orange/Yellow
-                Element::Wind => 0x00C42A,  // Green
-                Element::Water => 0x0B34FF, // Blue
-            },
+            Theme::Dark =>
+                match self {
+                    Element::Fire => 0xff0000, // Red
+                    Element::Earth => 0xffc200, // Orange/Yellow
+                    Element::Wind => 0x00c42a, // Green
+                    Element::Water => 0x0b34ff, // Blue
+                }
         }
     }
 }
@@ -347,63 +356,67 @@ impl Bodies {
     /// Object color
     pub fn object_color(self, theme: Theme) -> i32 {
         match theme {
-            Theme::Light => match self {
-                Bodies::Sun => 0xFFA300,     // Orange
-                Bodies::Moon => 0xB5B510,    // Yellow
-                Bodies::Mercury => 0x6900FF, // Indiigo
-                Bodies::Venus => 0xFF009E,   // Pink
-                Bodies::Mars => 0xFF1212,    // Red small ligth
-                Bodies::Jupiter => 0x12A5FF, // Blue ligth
-                Bodies::Saturn => 0xCC0000,  // Red CC
-                Bodies::Uranus => 0xA89402,  // Brown
-                Bodies::Neptune => 0x00B526, // Green small ligth
-                Bodies::Pluto => 0xBF3A3A,   // Red special
-                _ => 0x6B6B6B,               // Gray
-            },
+            Theme::Light =>
+                match self {
+                    Bodies::Sun => 0xffa300, // Orange
+                    Bodies::Moon => 0xb5b510, // Yellow
+                    Bodies::Mercury => 0x6900ff, // Indiigo
+                    Bodies::Venus => 0xff009e, // Pink
+                    Bodies::Mars => 0xff1212, // Red small ligth
+                    Bodies::Jupiter => 0x12a5ff, // Blue ligth
+                    Bodies::Saturn => 0xcc0000, // Red CC
+                    Bodies::Uranus => 0xa89402, // Brown
+                    Bodies::Neptune => 0x00b526, // Green small ligth
+                    Bodies::Pluto => 0xbf3a3a, // Red special
+                    _ => 0x6b6b6b, // Gray
+                }
             // To do test colors
-            Theme::Dark => match self {
-                Bodies::Sun => 0xFFA300,     // Orange
-                Bodies::Moon => 0xB5B510,    // Yellow
-                Bodies::Mercury => 0x6900FF, // Indiigo
-                Bodies::Venus => 0xFF009E,   // Pink
-                Bodies::Mars => 0xFF1212,    // Red small ligth
-                Bodies::Jupiter => 0x12A5FF, // Blue ligth
-                Bodies::Saturn => 0xCC0000,  // Red CC
-                Bodies::Uranus => 0xA89402,  // Brown
-                Bodies::Neptune => 0x00B526, // Green small ligth
-                Bodies::Pluto => 0xBF3A3A,   // Red special
-                _ => 0x6B6B6B,               // Gray
-            },
+            Theme::Dark =>
+                match self {
+                    Bodies::Sun => 0xffa300, // Orange
+                    Bodies::Moon => 0xb5b510, // Yellow
+                    Bodies::Mercury => 0x6900ff, // Indiigo
+                    Bodies::Venus => 0xff009e, // Pink
+                    Bodies::Mars => 0xff1212, // Red small ligth
+                    Bodies::Jupiter => 0x12a5ff, // Blue ligth
+                    Bodies::Saturn => 0xcc0000, // Red CC
+                    Bodies::Uranus => 0xa89402, // Brown
+                    Bodies::Neptune => 0x00b526, // Green small ligth
+                    Bodies::Pluto => 0xbf3a3a, // Red special
+                    _ => 0x6b6b6b, // Gray
+                }
         }
     }
 
     /// Text translate
     pub fn text(self, lang: Language) -> String {
         match lang {
-            Language::English => match self {
-                Bodies::TrueNode => "North node".to_string(),
-                Bodies::SouthNode => "South node".to_string(),
-                Bodies::FortunaPart => "Fortuna part".to_string(),
-                _ => self.as_static().to_string(),
-            },
-            Language::French => match self {
-                Bodies::Sun => "Soleil".to_string(),
-                Bodies::Moon => "Lune".to_string(),
-                Bodies::Mercury => "Mercure".to_string(),
-                Bodies::Venus => "Venus".to_string(),
-                Bodies::Mars => "Mars".to_string(),
-                Bodies::Jupiter => "Jupiter".to_string(),
-                Bodies::Saturn => "Saturne".to_string(),
-                Bodies::Uranus => "Uranus".to_string(),
-                Bodies::Neptune => "Neptune".to_string(),
-                Bodies::Pluto => "Pluton".to_string(),
-                Bodies::TrueNode => "Noeud nord".to_string(),
-                Bodies::Chiron => "Chiron".to_string(),
-                Bodies::Ceres => "Ceres".to_string(),
-                Bodies::SouthNode => "Noeud sud".to_string(),
-                Bodies::FortunaPart => "Part de fortune".to_string(),
-                _ => self.as_static().to_string(),
-            },
+            Language::English =>
+                match self {
+                    Bodies::TrueNode => "North node".to_string(),
+                    Bodies::SouthNode => "South node".to_string(),
+                    Bodies::FortunaPart => "Fortuna part".to_string(),
+                    _ => self.as_static().to_string(),
+                }
+            Language::French =>
+                match self {
+                    Bodies::Sun => "Soleil".to_string(),
+                    Bodies::Moon => "Lune".to_string(),
+                    Bodies::Mercury => "Mercure".to_string(),
+                    Bodies::Venus => "Venus".to_string(),
+                    Bodies::Mars => "Mars".to_string(),
+                    Bodies::Jupiter => "Jupiter".to_string(),
+                    Bodies::Saturn => "Saturne".to_string(),
+                    Bodies::Uranus => "Uranus".to_string(),
+                    Bodies::Neptune => "Neptune".to_string(),
+                    Bodies::Pluto => "Pluton".to_string(),
+                    Bodies::TrueNode => "Noeud nord".to_string(),
+                    Bodies::Chiron => "Chiron".to_string(),
+                    Bodies::Ceres => "Ceres".to_string(),
+                    Bodies::SouthNode => "Noeud sud".to_string(),
+                    Bodies::FortunaPart => "Part de fortune".to_string(),
+                    _ => self.as_static().to_string(),
+                }
         }
     }
 }
@@ -437,7 +450,7 @@ impl Object {
         object_type: ObjectType,
         longitude: f64,
         latitude: f64,
-        speed_longitude: f64,
+        speed_longitude: f64
     ) -> Object {
         let object_pos;
         if f64::abs(speed_longitude) < 0.0003 {
@@ -491,8 +504,8 @@ pub enum Angle {
     Mc = 4,
 }
 
-/// Type of calandar
-pub enum Calandar {
+/// Type of calendar
+pub enum Calendar {
     Julian = 0,
     Gregorian = 1,
 }
@@ -539,17 +552,7 @@ pub enum HouseSystem {
 }
 
 /// Aspects
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Display,
-    EnumIter,
-    AsStaticStr,
-    Serialize,
-    Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Display, EnumIter, AsStaticStr, Serialize, Deserialize)]
 pub enum Aspects {
     Conjunction = 0,
     Opposition = 1,
@@ -586,28 +589,30 @@ impl Aspects {
 
     pub fn text(self, lang: Language) -> String {
         match lang {
-            Language::English => match self {
-                Aspects::Conjunction => "Conjunction".to_string(),
-                Aspects::Opposition => "Opposition".to_string(),
-                Aspects::Trine => "Trine".to_string(),
-                Aspects::Square => "Square".to_string(),
-                Aspects::Sextile => "Sextile".to_string(),
-                Aspects::Inconjunction => "Inconjunction".to_string(),
-                Aspects::Sesquisquare => "Sesquisquare".to_string(),
-                Aspects::Semisquare => "Semisquare".to_string(),
-                Aspects::Semisextile => "Semisextile".to_string(),
-            },
-            Language::French => match self {
-                Aspects::Conjunction => "Conjonction".to_string(),
-                Aspects::Opposition => "Opposition".to_string(),
-                Aspects::Trine => "Trigone".to_string(),
-                Aspects::Square => "Quadrature".to_string(),
-                Aspects::Sextile => "Sextile".to_string(),
-                Aspects::Inconjunction => "Quinconce".to_string(),
-                Aspects::Sesquisquare => "Sesqui-carré".to_string(),
-                Aspects::Semisquare => "Demi-carré".to_string(),
-                Aspects::Semisextile => "Demi-sextile".to_string(),
-            },
+            Language::English =>
+                match self {
+                    Aspects::Conjunction => "Conjunction".to_string(),
+                    Aspects::Opposition => "Opposition".to_string(),
+                    Aspects::Trine => "Trine".to_string(),
+                    Aspects::Square => "Square".to_string(),
+                    Aspects::Sextile => "Sextile".to_string(),
+                    Aspects::Inconjunction => "Inconjunction".to_string(),
+                    Aspects::Sesquisquare => "Sesquisquare".to_string(),
+                    Aspects::Semisquare => "Semisquare".to_string(),
+                    Aspects::Semisextile => "Semisextile".to_string(),
+                }
+            Language::French =>
+                match self {
+                    Aspects::Conjunction => "Conjonction".to_string(),
+                    Aspects::Opposition => "Opposition".to_string(),
+                    Aspects::Trine => "Trigone".to_string(),
+                    Aspects::Square => "Quadrature".to_string(),
+                    Aspects::Sextile => "Sextile".to_string(),
+                    Aspects::Inconjunction => "Quinconce".to_string(),
+                    Aspects::Sesquisquare => "Sesqui-carré".to_string(),
+                    Aspects::Semisquare => "Demi-carré".to_string(),
+                    Aspects::Semisextile => "Demi-sextile".to_string(),
+                }
         }
     }
 }
@@ -623,7 +628,7 @@ impl Aspects {
     AsStaticStr,
     Serialize,
     Deserialize,
-    FromPrimitive,
+    FromPrimitive
 )]
 pub enum AspectsFilter {
     AllAspects = 0,
@@ -645,35 +650,38 @@ impl AspectsFilter {
     /// Vector of aspects in AspectsFilter
     pub fn vec_aspects(self) -> Vec<Aspects> {
         match self {
-            AspectsFilter::AllAspects => vec![
-                Aspects::Conjunction,
-                Aspects::Opposition,
-                Aspects::Trine,
-                Aspects::Square,
-                Aspects::Sextile,
-                Aspects::Inconjunction,
-                Aspects::Sesquisquare,
-                Aspects::Semisquare,
-                Aspects::Semisextile,
-            ],
-            AspectsFilter::AllMajorsAspects => vec![
-                Aspects::Conjunction,
-                Aspects::Opposition,
-                Aspects::Trine,
-                Aspects::Square,
-                Aspects::Sextile,
-            ],
+            AspectsFilter::AllAspects =>
+                vec![
+                    Aspects::Conjunction,
+                    Aspects::Opposition,
+                    Aspects::Trine,
+                    Aspects::Square,
+                    Aspects::Sextile,
+                    Aspects::Inconjunction,
+                    Aspects::Sesquisquare,
+                    Aspects::Semisquare,
+                    Aspects::Semisextile
+                ],
+            AspectsFilter::AllMajorsAspects =>
+                vec![
+                    Aspects::Conjunction,
+                    Aspects::Opposition,
+                    Aspects::Trine,
+                    Aspects::Square,
+                    Aspects::Sextile
+                ],
             AspectsFilter::Conjunction => vec![Aspects::Conjunction],
             AspectsFilter::Opposition => vec![Aspects::Opposition],
             AspectsFilter::Trine => vec![Aspects::Trine],
             AspectsFilter::Square => vec![Aspects::Square],
             AspectsFilter::Sextile => vec![Aspects::Sextile],
-            AspectsFilter::AllMinorsAspect => vec![
-                Aspects::Inconjunction,
-                Aspects::Sesquisquare,
-                Aspects::Semisquare,
-                Aspects::Semisextile,
-            ],
+            AspectsFilter::AllMinorsAspect =>
+                vec![
+                    Aspects::Inconjunction,
+                    Aspects::Sesquisquare,
+                    Aspects::Semisquare,
+                    Aspects::Semisextile
+                ],
             AspectsFilter::Inconjunction => vec![Aspects::Inconjunction],
             AspectsFilter::Sesquisquare => vec![Aspects::Sesquisquare],
             AspectsFilter::Semisquare => vec![Aspects::Semisquare],

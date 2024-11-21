@@ -3,14 +3,16 @@ extern crate serde_derive;
 extern crate serde_json;
 extern crate strum;
 
-use strum::{AsStaticRef, IntoEnumIterator};
+use libswe_sys::constants::EPHEMERIS_PATH;
+use strum::{ AsStaticRef, IntoEnumIterator };
 
-//use libswe_sys::sweconst::{Bodies, Calandar, HouseSystem};
-use libswe_sys::sweconst::{
-    Angle, Bodies, Calandar, House, Object, ObjectType, OptionalFlag,
-};
+use libswe_sys::sweconst::{ Angle, Bodies, Calendar, House, Object, ObjectType, OptionalFlag };
 use libswe_sys::swerust::{
-    handler_swe02, handler_swe03, handler_swe07, handler_swe08, handler_swe14,
+    handler_swe02,
+    handler_swe03,
+    handler_swe07,
+    handler_swe08,
+    handler_swe14,
 };
 use serde::Deserialize;
 use std::env;
@@ -33,13 +35,9 @@ pub struct Data {
 
 fn main() {
     println!("Swissephem C -> Rust");
-    // let swe02_path_final = "/src/swisseph/sweph";
-    // let swe02_path: String =
-    //    env::var("CARGO_MANIFEST_DIR").unwrap() + swe02_path_final;
-    let swe02_path: &str =
-        "/Users/stephanebressani/Code/Rust/libswe-sys/src/swisseph/sweph";
-    handler_swe02::set_ephe_path(&swe02_path);
-    println!("Set the path of ephemeris to: {}", &swe02_path);
+    
+    handler_swe02::set_ephe_path(&EPHEMERIS_PATH);
+    println!("Set the path of ephemeris to: {}", &EPHEMERIS_PATH);
     println!("Version swephem: {}", handler_swe02::version());
     println!("Get path of library: {}", handler_swe02::get_library_path());
 
@@ -48,10 +46,7 @@ fn main() {
     let mut file_path = PathBuf::new();
     file_path.push(env::current_dir().unwrap().as_path());
     file_path.push(PATH);
-    File::open(file_path.as_path())
-        .unwrap()
-        .read_to_string(&mut s)
-        .unwrap();
+    File::open(file_path.as_path()).unwrap().read_to_string(&mut s).unwrap();
     let data: Data = serde_json::from_str(&s).unwrap();
     println!("Data: {:?}", data);
     let julday: f64 = handler_swe08::julday(
@@ -59,29 +54,28 @@ fn main() {
         data.month,
         data.day,
         data.hourf64,
-        Calandar::Gregorian,
+        Calendar::Gregorian
     );
     println!("Get julday: {:?}", julday);
 
     let mut object: Vec<Object> = Vec::new();
     let mut calc: handler_swe03::CalcUtResult;
     for bodies in Bodies::iter() {
-        if bodies.clone().object_type() == ObjectType::PlanetOrStar
-            || bodies.clone().object_type() == ObjectType::Fiction
+        if
+            bodies.clone().object_type() == ObjectType::PlanetOrStar ||
+            bodies.clone().object_type() == ObjectType::Fiction
         {
-            calc = handler_swe03::calc_ut(
-                julday,
-                bodies.clone(),
-                OptionalFlag::Speed as i32,
+            calc = handler_swe03::calc_ut(julday, bodies.clone(), OptionalFlag::Speed as i32);
+            object.push(
+                Object::new(
+                    bodies.clone(),
+                    bodies.clone().as_static(),
+                    bodies.clone().object_type(),
+                    calc.longitude,
+                    calc.latitude,
+                    calc.speed_longitude
+                )
             );
-            object.push(Object::new(
-                bodies.clone(),
-                bodies.clone().as_static(),
-                bodies.clone().object_type(),
-                calc.longitude,
-                calc.latitude,
-                calc.speed_longitude,
-            ));
         }
     }
 
@@ -92,7 +86,7 @@ fn main() {
     let pheno_ut: handler_swe07::PhenoUtResult = handler_swe07::pheno_ut(
         julday,
         Bodies::Sun,
-        OptionalFlag::Speed as i32,
+        OptionalFlag::Speed as i32
     );
     println!("PhenoUt: {:?}", pheno_ut);
 
@@ -100,10 +94,15 @@ fn main() {
     let name = handler_swe14::house_name('P');
     println!("Hsys: {}", name);
 
-    let utc_time_zone: handler_swe08::UtcTimeZoneResult =
-        handler_swe08::utc_time_zone(
-            data.year, data.month, data.day, data.hour, data.min, data.sec, 2.0,
-        );
+    let utc_time_zone: handler_swe08::UtcTimeZoneResult = handler_swe08::utc_time_zone(
+        data.year,
+        data.month,
+        data.day,
+        data.hour,
+        data.min,
+        data.sec,
+        2.0
+    );
     println!("utc_time_zone: {:?}", utc_time_zone);
 
     let utc_to_jd: handler_swe08::UtcToJdResult = handler_swe08::utc_to_jd(
@@ -119,13 +118,12 @@ fn main() {
         utc_time_zone.hour[1],
         utc_time_zone.min[1],
         utc_time_zone.sec[1],*/
-        Calandar::Gregorian,
+        Calendar::Gregorian
     );
     println!("utc_to_jd: {:?}", utc_to_jd);
 
     // Whole signs
-    let result_w =
-        handler_swe14::houses(utc_to_jd.julian_day_ut, data.lat, data.lng, 'W');
+    let result_w = handler_swe14::houses(utc_to_jd.julian_day_ut, data.lat, data.lng, 'W');
     //println!("House object: {:?}", result);
     let mut house2: Vec<House> = Vec::new();
     for (i, res) in result_w.clone().cusps.iter().enumerate() {
@@ -145,8 +143,7 @@ fn main() {
     println!("House (wohle signs): {:?}", result_w.clone());
 
     // Wohle Signs
-    let result =
-        handler_swe14::houses(utc_to_jd.julian_day_ut, data.lat, data.lng, 'P');
+    let result = handler_swe14::houses(utc_to_jd.julian_day_ut, data.lat, data.lng, 'P');
     //println!("House object: {:?}", result);
     let mut house: Vec<House> = Vec::new();
     for (i, res) in result.clone().cusps.iter().enumerate() {
