@@ -78,7 +78,7 @@ pub fn calc_ut(tjd_ut: f64, ipl: Bodies, iflag: i32) -> CalcUtResult {
     result
 }
 
-pub fn calc_ut_declination(tjd_ut: f64, body: Bodies) -> DeclinationResult {
+pub fn calc_ut_declination(tjd_ut: f64, body: Bodies, iflag: i32) -> DeclinationResult {
     let mut xx: [f64; 6] = [0.0; 6];
     let mut serr = [0; 255];
     let result;
@@ -87,21 +87,9 @@ pub fn calc_ut_declination(tjd_ut: f64, body: Bodies) -> DeclinationResult {
         let p_serr = serr.as_mut_ptr();
         let status;
         if body == Bodies::SouthNode {
-            status = raw::swe_calc_ut(
-                tjd_ut,
-                Bodies::TrueNode as i32,
-                CalculationFlags::EQUATORIAL_POSITIONS,
-                p_xx,
-                p_serr
-            );
+            status = raw::swe_calc_ut(tjd_ut, Bodies::TrueNode as i32, iflag, p_xx, p_serr);
         } else {
-            status = raw::swe_calc_ut(
-                tjd_ut,
-                body as i32,
-                CalculationFlags::EQUATORIAL_POSITIONS,
-                p_xx,
-                p_serr
-            );
+            status = raw::swe_calc_ut(tjd_ut, body as i32, iflag, p_xx, p_serr);
         }
         let s_serr = CString::from(CStr::from_ptr(p_serr)).to_str().unwrap().to_string();
         if body == Bodies::SouthNode {
@@ -294,7 +282,7 @@ mod tests {
     fn test_calc_ut_declination() {
         set_ephe_path(EPHEMERIS_PATH);
         let test_date_time = get_test_date_time();
-        let result = calc_ut_declination(test_date_time, Bodies::Jupiter);
+        let result = calc_ut_declination(test_date_time, Bodies::Jupiter, CalculationFlags::EQUATORIAL_POSITIONS);
         assert_approx_eq!(result.declination, 22.235712853294377);
     }
 
