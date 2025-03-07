@@ -2,7 +2,7 @@
  * Traditional astrology for rust
  * ==============================
  *
- * Rust library by Stéphane (s.bressani@bluewin.ch)
+ * Rust library by Stéphane (s.bressani@bluewin.ch) extended by Agnese
  *
  * Using swissephem c library by Astrodienst AG
  * by Dieter Koch and Alois Treindl (https://www.astro.com/ftp/swisseph/)
@@ -39,7 +39,7 @@ fn main() {
         println!(
             "cargo:rustc-link-search=native={}",
             Path::new(&dir)
-                .join("src/swisseph/2.08/src/build")
+                .join("src/swisseph/src/build")
                 .display()
         );
     */
@@ -50,15 +50,15 @@ fn main() {
         //        .flag("-09")
         .flag("-Wall")
         //.include(Path::new(&dir).join("src/clib"))
-        .file(Path::new(&dir).join("src/swisseph/2.08/src/swecl.c"))
-        .file(Path::new(&dir).join("src/swisseph/2.08/src/swedate.c"))
-        .file(Path::new(&dir).join("src/swisseph/2.08/src/swehel.c"))
-        .file(Path::new(&dir).join("src/swisseph/2.08/src/swehouse.c"))
-        .file(Path::new(&dir).join("src/swisseph/2.08/src/swejpl.c"))
-        .file(Path::new(&dir).join("src/swisseph/2.08/src/swemmoon.c"))
-        .file(Path::new(&dir).join("src/swisseph/2.08/src/swemplan.c"))
-        .file(Path::new(&dir).join("src/swisseph/2.08/src/swepcalc.c"))
-        .file(Path::new(&dir).join("src/swisseph/2.08/src/sweph.c"))
-        .file(Path::new(&dir).join("src/swisseph/2.08/src/swephlib.c"))
+        .file(Path::new(&dir).join("src/swisseph/swecl.c"))
+        .file(Path::new(&dir).join("src/swisseph/swedate.c"))
+        .file(Path::new(&dir).join("src/swisseph/swehel.c"))
+        .file(Path::new(&dir).join("src/swisseph/swehouse.c"))
+        .file(Path::new(&dir).join("src/swisseph/swejpl.c"))
+        .file(Path::new(&dir).join("src/swisseph/swemmoon.c"))
+        .file(Path::new(&dir).join("src/swisseph/swemplan.c"))
+        .file(Path::new(&dir).join("src/swisseph/swepcalc.c"))
+        .file(Path::new(&dir).join("src/swisseph/sweph.c"))
+        .file(Path::new(&dir).join("src/swisseph/swephlib.c"))
         .compile("swe")
 }

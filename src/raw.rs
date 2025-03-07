@@ -1,5 +1,5 @@
 use std::os::raw::{c_char, c_double, c_int};
-/// Interface https://www.astro.com/ftp/swisseph/doc/swephprg.htm#_Toc19111156
+// Interface https://www.astro.com/ftp/swisseph/doc/swephprg.htm#_Toc19111156
 #[link(name = "swe")]
 extern "C" {
 

@@ -1,4 +1,4 @@
-use crate::{ constants::CalculationFlags, raw };
+use crate::raw;
 use crate::sweconst::Bodies;
 use crate::swerust;
 use std::ffi::{ CStr, CString };
@@ -261,28 +261,53 @@ fn znorm(mut angle: f64) -> f64 {
 mod tests {
     use assert_approx_eq::assert_approx_eq;
     use swerust::{ handler_swe02::set_ephe_path, handler_swe08::{ utc_time_zone, utc_to_jd } };
-    use crate::{ constants::{ CalculationFlags, EPHEMERIS_PATH }, sweconst::Calendar };
+    use crate::{
+        constants::{ CalculationFlags, EPHEMERIS_PATH },
+        raw::swe_version,
+        sweconst::Calendar,
+        swerust::handler_swe02::version,
+    };
     use super::*;
 
     #[test]
-    fn test_calc_ut() {
+    fn test_calc_ut_jupiter() {
         set_ephe_path(EPHEMERIS_PATH);
         let date = get_test_date_time();
         let result = calc_ut(date, Bodies::Jupiter, CalculationFlags::SPEED_PRECISION);
         println!("result: {:?}", result);
-        assert_approx_eq!(result.longitude, 78.4056407833763);
-        assert_approx_eq!(result.latitude, -0.6995066240460757);
-        assert_approx_eq!(result.distance_au, 4.123774890302974);
-        assert_approx_eq!(result.speed_longitude, -0.12303505930037291);
-        assert_approx_eq!(result.speed_latitude, 0.0013794304978785449);
-        assert_approx_eq!(result.speed_distance_au, -0.004590414207035888);
+        println!("Version {}", version());
+        assert_approx_eq!(result.longitude, 78.40564471604982);
+        assert_approx_eq!(result.latitude, -0.6995066677839287);
+        assert_approx_eq!(result.distance_au, 4.123775036812139);
+        assert_approx_eq!(result.speed_longitude, -0.12303500197067914);
+        assert_approx_eq!(result.speed_latitude, 0.0013794193092861663);
+        assert_approx_eq!(result.speed_distance_au, -0.004590421999208096);
+    }
+
+    #[test]
+    fn test_calc_ut_chiron() {
+        set_ephe_path(EPHEMERIS_PATH);
+        let date = get_test_date_time();
+        let result = calc_ut(date, Bodies::Chiron, CalculationFlags::SPEED_PRECISION);
+        println!("result: {:?}", result);
+        println!("Version {}", version());
+        assert_approx_eq!(result.longitude, 19.65362532280687);
+        assert_approx_eq!(result.latitude, 1.016001054122461);
+        assert_approx_eq!(result.distance_au, 17.838915600053266);
+        assert_approx_eq!(result.speed_longitude, -0.03233323765618366);
+        assert_approx_eq!(result.speed_latitude, -0.0018504535390746432);
+        assert_approx_eq!(result.speed_distance_au, 0.01081615666915093);
     }
 
     #[test]
     fn test_calc_ut_declination() {
         set_ephe_path(EPHEMERIS_PATH);
         let test_date_time = get_test_date_time();
-        let result = calc_ut_declination(test_date_time, Bodies::Jupiter, CalculationFlags::EQUATORIAL_POSITIONS);
+        let result = calc_ut_declination(
+            test_date_time,
+            Bodies::Jupiter,
+            CalculationFlags::EQUATORIAL_POSITIONS
+        );
         assert_approx_eq!(result.declination, 22.235712853294377);
     }
 
