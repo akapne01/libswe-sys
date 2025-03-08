@@ -18,6 +18,7 @@
 use std::env;
 use std::path::Path;
 
+#[allow(dead_code)]
 fn main() {
     /*
     let host = std::env::var("HOST").unwrap();
@@ -43,8 +44,10 @@ fn main() {
                 .display()
         );
     */
+
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    cc::Build::new()
+    cc::Build
+        ::new()
         //.include(path_header)
         .flag("-g")
         //        .flag("-09")
@@ -60,5 +63,10 @@ fn main() {
         .file(Path::new(&dir).join("src/swisseph/swepcalc.c"))
         .file(Path::new(&dir).join("src/swisseph/sweph.c"))
         .file(Path::new(&dir).join("src/swisseph/swephlib.c"))
+        .flag("-Wno-unused-parameter")
+        .flag("-Wno-unused-but-set-parameter")
+        .flag("-Wno-missing-field-initializers")
+        .flag("-Wno-unused-function")
+        .flag("-Wno-sign-compare")
         .compile("swe")
 }
