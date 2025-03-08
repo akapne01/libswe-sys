@@ -1,8 +1,7 @@
-use std::os::raw::{c_char, c_double, c_int};
+use std::os::raw::{ c_char, c_double, c_int };
 // Interface https://www.astro.com/ftp/swisseph/doc/swephprg.htm#_Toc19111156
 #[link(name = "swe")]
 extern "C" {
-
     /*
      * 2. The Ephemeris file related functions
      */
@@ -65,7 +64,7 @@ extern "C" {
         ipl: c_int,
         iflag: c_int,
         xx: *mut c_double,
-        serr: *mut c_char,
+        serr: *mut c_char
     ) -> c_int;
 
     /*
@@ -83,7 +82,7 @@ extern "C" {
         ipl: c_int,
         iflag: c_int,
         atr: *mut c_double,
-        serr: *mut c_char,
+        serr: *mut c_char
     ) -> c_int;
 
     /*
@@ -101,7 +100,7 @@ extern "C" {
         month: c_int,
         day: c_int,
         hour: c_double,
-        gregflag: c_int,
+        gregflag: c_int
     ) -> c_double;
 
     /// void swe_utc_time_zone(
@@ -123,7 +122,7 @@ extern "C" {
         iday_out: *mut c_int,
         ihour_out: *mut c_int,
         imin_out: *mut c_int,
-        dsec_out: *mut c_double,
+        dsec_out: *mut c_double
     );
 
     /// int32 swe_utc_to_jd(
@@ -143,7 +142,7 @@ extern "C" {
         dsec: c_double,
         gregflag: c_int,
         dret: *mut c_double,
-        serr: *mut c_char,
+        serr: *mut c_char
     ) -> c_int;
 
     /*
@@ -169,7 +168,23 @@ extern "C" {
         geolon: c_double,
         hsys: c_int,
         cusps: *mut c_double,
+        ascmc: *mut c_double
+    ) -> c_int;
+
+    /// int swe_houses_ex2(
+    ///     double tjd_ut, int32 iflag, double geolat, double geolon, int hsys,
+    ///     double *cusps, double *ascmc, double *cusp_speed, double *ascmc_speed, char *serr);
+    pub fn swe_houses_ex2(
+        tjd_ut: c_double,
+        iflag: c_int,
+        geolat: c_double,
+        geolon: c_double,
+        hsys: c_int,
+        cusps: *mut c_double,
         ascmc: *mut c_double,
+        cusp_speed: *mut c_double,
+        ascmc_speed: *mut c_double,
+        serr: *mut c_char
     ) -> c_int;
 
     /*
@@ -197,6 +212,16 @@ extern "C" {
         imin: *mut c_int,
         isec: *mut c_int,
         cdegfr: *mut c_double,
-        isgn: *mut c_int,
+        isgn: *mut c_int
     ) -> c_double;
+
+    /// Sets the sidereal mode.
+    ///
+    /// # Parameters:
+    /// - `sid_mode`: The sidereal mode as an integer.
+    /// - `t0`: Reference epoch for ayanamsa.
+    /// - `ayan_t0`: Ayanamsa value at reference epoch.
+    ///
+    /// C function: `void swe_set_sid_mode(int32 sid_mode, double t0, double ayan_t0);`
+    pub fn swe_set_sid_mode(sid_mode: c_int, t0: c_double, ayan_t0: c_double);
 }

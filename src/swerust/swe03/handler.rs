@@ -1,16 +1,16 @@
-use crate::raw;
+use crate::raw::{ self, swe_set_sid_mode };
 use crate::sweconst::Bodies;
 use crate::swerust;
-use std::ffi::{ CStr, CString };
+use std::ffi::{ c_double, c_int, CStr, CString };
 
 /*
  * 3. The functions swe_calc_ut() and swe_calc()
  *
  * Before calling one of these functions or any other Swiss Ephemeris function,
  * it is strongly recommended to call the function swe_set_ephe_path(). Even if
- * you don’t want to set an ephemeris path and use the Moshier ephemeris, it is
+ * you do not want to set an ephemeris path and use the Moshier ephemeris, it is
  * nevertheless recommended to call swe_set_ephe_path(NULL), because this
- * function makes important initializations. If you don’t do that, the Swiss
+ * function makes important initializations. If you do not do that, the Swiss
  * Ephemeris may work but the results may be not 100% consistent.
  */
 
@@ -25,7 +25,7 @@ use std::ffi::{ CStr, CString };
  * Speed in latitude (deg/day)     speed in declination (deg/day)
  * Speed in distance (AU/day)      speed in distance (AU/day)
  */
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct CalcUtResult {
     pub longitude: f64,
     pub latitude: f64,
@@ -257,20 +257,37 @@ fn znorm(mut angle: f64) -> f64 {
     }
 }
 
+/// Set sidereal mode
+/// sid_mode: The sidereal ayanamsha mode from Ayanamashas constants defined in constants.rs
+/// t0: The reference epoch (typically 0.0, unless using a custom ayanamsha).
+/// ayan_t0: The ayanamsha value at t0 (used if defining a custom ayanamsha).
+pub fn set_sidereal_mode_ext(sid_mode: i32, t0: f64, ayan_t0: f64) {
+    unsafe {
+        swe_set_sid_mode(sid_mode as c_int, t0 as c_double, ayan_t0 as c_double);
+    }
+}
+
+/// Set sidereal mode
+/// sid_mode: The sidereal ayanamsha mode from Ayanamashas constants defined in constants.rs
+pub fn set_sidereal_mode(ayanamsha: i32) {
+    unsafe {
+        swe_set_sid_mode(ayanamsha as c_int, 0.0 as c_double, 0.0 as c_double);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use assert_approx_eq::assert_approx_eq;
     use swerust::{ handler_swe02::set_ephe_path, handler_swe08::{ utc_time_zone, utc_to_jd } };
     use crate::{
-        constants::{ CalculationFlags, EPHEMERIS_PATH },
-        raw::swe_version,
+        constants::{ Ayanamshas, CalculationFlags, EPHEMERIS_PATH },
         sweconst::Calendar,
         swerust::handler_swe02::version,
     };
     use super::*;
 
     #[test]
-    fn test_calc_ut_jupiter() {
+    pub fn test_calc_ut_jupiter() {
         set_ephe_path(EPHEMERIS_PATH);
         let date = get_test_date_time();
         let result = calc_ut(date, Bodies::Jupiter, CalculationFlags::SPEED_PRECISION);
@@ -285,7 +302,28 @@ mod tests {
     }
 
     #[test]
-    fn test_calc_ut_chiron() {
+    pub fn test_jupiter_sidereal_calculations() {
+        set_ephe_path(EPHEMERIS_PATH);
+        let date = get_test_date_time();
+        set_sidereal_mode_ext(Ayanamshas::GALACTIC_CENTER_MULA_WILHELM, 0.0, 0.0);
+        let flags = CalculationFlags::SIDEREAL_POSITIONS + CalculationFlags::SPEED_PRECISION;
+        let expected_result = CalcUtResult {
+            longitude: 58.003363748316765,
+            latitude: -0.699506667783935,
+            distance_au: 4.123775036812139,
+            speed_longitude: -0.12303827375908057,
+            speed_latitude: 0.001370052420148823,
+            speed_distance_au: -0.004590422001902981,
+            status: 65858,
+            serr: "".to_string(),
+        };
+        let actual_result = calc_ut(date, Bodies::Jupiter, flags);
+
+        assert_eq!(expected_result, actual_result);
+    }
+
+    #[test]
+    pub fn test_calc_ut_chiron() {
         set_ephe_path(EPHEMERIS_PATH);
         let date = get_test_date_time();
         let result = calc_ut(date, Bodies::Chiron, CalculationFlags::SPEED_PRECISION);
@@ -297,6 +335,27 @@ mod tests {
         assert_approx_eq!(result.speed_longitude, -0.03233323765618366);
         assert_approx_eq!(result.speed_latitude, -0.0018504535390746432);
         assert_approx_eq!(result.speed_distance_au, 0.01081615666915093);
+    }
+
+    #[test]
+    pub fn test_chiron_sidereal_calculations() {
+        set_ephe_path(EPHEMERIS_PATH);
+        let date = get_test_date_time();
+        set_sidereal_mode_ext(Ayanamshas::GALACTIC_CENTER_MULA_WILHELM, 0.0, 0.0);
+        let flags = CalculationFlags::SIDEREAL_POSITIONS + CalculationFlags::SPEED_PRECISION;
+        let expected_result = CalcUtResult {
+            longitude: 359.25134435507385,
+            latitude: 1.0160010541224618,
+            distance_au: 17.838915600053266,
+            speed_longitude: -0.03233632625509959,
+            speed_latitude: -0.0018536695535938952,
+            speed_distance_au: 0.010816156675034836,
+            status: 65858,
+            serr: "".to_string(),
+        };
+        let actual_result = calc_ut(date, Bodies::Chiron, flags);
+
+        assert_eq!(actual_result, expected_result);
     }
 
     #[test]
