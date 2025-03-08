@@ -4,7 +4,7 @@ extern crate serde_json;
 extern crate strum;
 
 use libswe_sys::constants::EPHEMERIS_PATH;
-use strum::{ AsStaticRef, IntoEnumIterator };
+use strum::IntoEnumIterator;
 
 use libswe_sys::sweconst::{ Angle, Bodies, Calendar, House, Object, ObjectType, OptionalFlag };
 use libswe_sys::swerust::{
@@ -69,7 +69,7 @@ fn main() {
             object.push(
                 Object::new(
                     bodies.clone(),
-                    bodies.clone().as_static(),
+                    bodies.clone().into(),
                     bodies.clone().object_type(),
                     calc.longitude,
                     calc.latitude,

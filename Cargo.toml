@@ -1,10 +1,10 @@
 [package]
 name = "libswe-sys"
-version = "0.2.7"
-authors = ["Stéphane Bressani <s.bressani@bluewin.ch>"]
-keyword = ["astrology", "swiss ephemem", "planet", "ephemeris"]
+version = "0.3.0"
+authors = [
+    "Stéphane Bressani <s.bressani@bluewin.ch> extended by Agnese akapne01",
+]
 links = "libswe"
-#build = "build.rs"
 edition = "2018"
 documentation = "https://docs.rs/libswe-sys/0.1.43/libswe_sys/"
 repository = "https://github.com/stephaneworkspace/libswe-sys"
@@ -12,17 +12,16 @@ description = "Astrology lib connected to the C lib Swiss ephemeris (just the c 
 license-file = "LICENSE"
 
 [dependencies]
-libc = "0.2"
-serde = { version = "1.0.102", features = ["derive"] }
-serde_json = "1.0.41"
+libc = "0.2.170"
+serde = { version = "1.0.218", features = ["derive"] }
+serde_json = "1.0.133"
 serde_derive = "1.0.102"
-strum = "0.17.1"
-strum_macros = "0.17.1"
+strum = "0.27.1"
+strum_macros = "0.27.1"
 libmath = "0.2.1"
-num-derive = "0.2"
+num-derive = "0.4.2"
 num-traits = "0.2"
 assert_approx_eq = "1.1.0"
 
 [build-dependencies]
-cc = { version = "1.0", features = ["parallel"] }
-#pkg-config = "0.3"
+cc = { version = "1.2.16", features = ["parallel"] }

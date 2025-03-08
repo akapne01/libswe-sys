@@ -6,7 +6,6 @@ use crate::swerust::handler_swe17::{ split_deg, SplitDegResult };
 use num_derive::FromPrimitive;
 //use num_traits::FromPrimitive;
 use serde::{ Deserialize, Serialize };
-use strum::AsStaticRef;
 
 /// Language available (for crate "astrology", "libastro")
 #[derive(Debug, Clone, Copy, PartialEq, FromPrimitive)]
@@ -132,7 +131,7 @@ impl Signs {
 }
 
 /// Element
-#[derive(Debug, Clone, Copy, PartialEq, AsStaticStr)]
+#[derive(Debug, Clone, Copy, PartialEq, IntoStaticStr)]
 pub enum Element {
     Fire,
     Earth,
@@ -184,7 +183,7 @@ impl Element {
 }
 
 /// Bodies
-#[derive(Debug, Clone, Copy, PartialEq, Display, EnumIter, AsStaticStr)]
+#[derive(Debug, Clone, Copy, PartialEq, Display, EnumIter, IntoStaticStr)]
 pub enum Bodies {
     EclNut = -1,
     Sun = 0,
@@ -396,7 +395,7 @@ impl Bodies {
                     Bodies::TrueNode => "North node".to_string(),
                     Bodies::SouthNode => "South node".to_string(),
                     Bodies::FortunaPart => "Fortuna part".to_string(),
-                    _ => self.as_static().to_string(),
+                    _ => self.to_string(),
                 }
             Language::French =>
                 match self {
@@ -415,7 +414,7 @@ impl Bodies {
                     Bodies::Ceres => "Ceres".to_string(),
                     Bodies::SouthNode => "Noeud sud".to_string(),
                     Bodies::FortunaPart => "Part de fortune".to_string(),
-                    _ => self.as_static().to_string(),
+                    _ => self.to_string(),
                 }
         }
     }
@@ -552,7 +551,7 @@ pub enum HouseSystem {
 }
 
 /// Aspects
-#[derive(Debug, Clone, Copy, PartialEq, Display, EnumIter, AsStaticStr, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Display, EnumIter, IntoStaticStr, Serialize, Deserialize)]
 pub enum Aspects {
     Conjunction = 0,
     Opposition = 1,
@@ -625,7 +624,7 @@ impl Aspects {
     PartialEq,
     Display,
     EnumIter,
-    AsStaticStr,
+    IntoStaticStr,
     Serialize,
     Deserialize,
     FromPrimitive
