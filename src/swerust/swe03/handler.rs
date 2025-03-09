@@ -1,4 +1,4 @@
-use crate::raw::{ self, swe_set_sid_mode };
+use crate::raw::{ self, swe_get_ayanamsa_name, swe_set_sid_mode };
 use crate::sweconst::Bodies;
 use crate::swerust;
 use std::ffi::{ c_double, c_int, CStr, CString };
@@ -275,6 +275,20 @@ pub fn set_sidereal_mode(ayanamsha: i32) {
     }
 }
 
+/// Allows to get Ayanamsha name based on constant
+pub fn get_ayanamsha_name(isidmode: i32) -> Option<String> {
+    unsafe {
+        let c_str_ptr = swe_get_ayanamsa_name(isidmode);
+        if c_str_ptr.is_null() {
+            return None;
+        }
+        CStr::from_ptr(c_str_ptr)
+            .to_str()
+            .ok()
+            .map(|s| s.to_string())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use assert_approx_eq::assert_approx_eq;
@@ -368,6 +382,15 @@ mod tests {
             CalculationFlags::EQUATORIAL_POSITIONS
         );
         assert_approx_eq!(result.declination, 22.235712853294377);
+    }
+
+    #[test]
+    pub fn test_get_ayanamsha_name() {
+        let expected_result = Some("Dhruva/Gal.Center/Mula (Wilhelm)".to_string());
+
+        let actual_result = get_ayanamsha_name(Ayanamsha::GALACTIC_CENTER_MULA_WILHELM);
+
+        assert_eq!(actual_result, expected_result);
     }
 
     pub fn get_test_date_time() -> f64 {

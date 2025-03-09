@@ -215,6 +215,10 @@ extern "C" {
         isgn: *mut c_int
     ) -> c_double;
 
+    /*
+     * Ayanamsha Functions for sidereal mode
+     */
+
     /// Sets the sidereal mode.
     ///
     /// # Parameters:
@@ -224,4 +228,7 @@ extern "C" {
     ///
     /// C function: `void swe_set_sid_mode(int32 sid_mode, double t0, double ayan_t0);`
     pub fn swe_set_sid_mode(sid_mode: c_int, t0: c_double, ayan_t0: c_double);
+
+    /// Allows to get ayanamsha name based on the integer number
+    pub fn swe_get_ayanamsa_name(isidmode: i32) -> *const std::os::raw::c_char;
 }
