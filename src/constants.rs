@@ -30,9 +30,10 @@ impl CalculationFlags {
     pub const CENTER_BODY: i32 = 1048576; // calculate position of center of body (COB) of planet, not barycenter of its system
 }
 
-pub struct Ayanamshas;
+#[derive(Debug, Clone, PartialEq)]
+pub struct Ayanamsha;
 
-impl Ayanamshas {
+impl Ayanamsha {
     pub const FAGAN_BRADLEY: i32 = 0; // Fagan/Bradley
     pub const LAHIRI: i32 = 1; // Lahiri
     pub const DE_LUCE: i32 = 2; // De Luce
@@ -82,6 +83,7 @@ impl Ayanamshas {
     pub const LHIRI_ICRC: i32 = 45; // Lahiri ICRC
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct HouseSystems;
 
 /// 'G': GAUQUELIN_SECTORS is not included since it returns array of 36 and currently

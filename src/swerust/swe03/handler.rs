@@ -280,7 +280,7 @@ mod tests {
     use assert_approx_eq::assert_approx_eq;
     use swerust::{ handler_swe02::set_ephe_path, handler_swe08::{ utc_time_zone, utc_to_jd } };
     use crate::{
-        constants::{ Ayanamshas, CalculationFlags, EPHEMERIS_PATH },
+        constants::{ Ayanamsha, CalculationFlags, EPHEMERIS_PATH },
         sweconst::Calendar,
         swerust::handler_swe02::version,
     };
@@ -305,7 +305,7 @@ mod tests {
     pub fn test_jupiter_sidereal_calculations() {
         set_ephe_path(EPHEMERIS_PATH);
         let date = get_test_date_time();
-        set_sidereal_mode_ext(Ayanamshas::GALACTIC_CENTER_MULA_WILHELM, 0.0, 0.0);
+        set_sidereal_mode_ext(Ayanamsha::GALACTIC_CENTER_MULA_WILHELM, 0.0, 0.0);
         let flags = CalculationFlags::SIDEREAL_POSITIONS + CalculationFlags::SPEED_PRECISION;
         let expected_result = CalcUtResult {
             longitude: 58.003363748316765,
@@ -341,7 +341,7 @@ mod tests {
     pub fn test_chiron_sidereal_calculations() {
         set_ephe_path(EPHEMERIS_PATH);
         let date = get_test_date_time();
-        set_sidereal_mode_ext(Ayanamshas::GALACTIC_CENTER_MULA_WILHELM, 0.0, 0.0);
+        set_sidereal_mode_ext(Ayanamsha::GALACTIC_CENTER_MULA_WILHELM, 0.0, 0.0);
         let flags = CalculationFlags::SIDEREAL_POSITIONS + CalculationFlags::SPEED_PRECISION;
         let expected_result = CalcUtResult {
             longitude: 359.25134435507385,

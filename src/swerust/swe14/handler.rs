@@ -141,7 +141,7 @@ pub fn calculate_houses_extended_with_speeds(
 #[cfg(test)]
 mod tests {
     use crate::{
-        constants::{ Ayanamshas, CalculationFlags, HouseSystems, EPHEMERIS_PATH },
+        constants::{ Ayanamsha, CalculationFlags, HouseSystems, EPHEMERIS_PATH },
         sweconst::Calendar,
         swerust::{
             handler_swe02::set_ephe_path,
@@ -222,7 +222,7 @@ mod tests {
         let date = get_test_date_time();
         let house_system = HouseSystems::PLACIDUS;
         set_ephe_path(EPHEMERIS_PATH);
-        set_sidereal_mode(Ayanamshas::GALACTIC_CENTER_MULA_WILHELM);
+        set_sidereal_mode(Ayanamsha::GALACTIC_CENTER_MULA_WILHELM);
         let flag = CalculationFlags::SIDEREAL_POSITIONS;
 
         let expected_result = HouseCalculationResult {
