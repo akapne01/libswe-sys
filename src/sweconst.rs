@@ -185,7 +185,7 @@ impl Element {
 /// Bodies
 #[derive(Debug, Clone, Copy, PartialEq, Display, EnumIter, IntoStaticStr)]
 pub enum Bodies {
-    EclNut = -1,
+    EclNut = -1, // Computes the obliquity of the ecliptic and the nutation.
     Sun = 0,
     Moon = 1,
     Mercury = 2,
@@ -212,6 +212,9 @@ pub enum Bodies {
     NPlanets = 23,
     SouthNode = 24,
     FortunaPart = 25,
+    /* Offsets */
+    Comets = 1000,
+    Asteroids = 10000,
     // SE_FICT_OFFSET = 40,
     // SE_NFICT_ELEM = 15,
     // SE_AST_OFFSET = 10000,
@@ -232,6 +235,10 @@ pub enum Bodies {
     NeptuneAdams = 52,
     PlutoLowell = 53,
     PlutoPickering = 54,
+    Vulcan = 55,
+    WhiteMoon = 56,
+    Proserpina = 57,
+    Waldemath = 58,
     /* Asteroid */
     AsteroidAstera = 10000 + 5,
     AsteroidHebe = 10000 + 6,
@@ -349,6 +356,12 @@ impl Bodies {
             Bodies::AsteroidVulcano => ObjectType::Asteroid,
             Bodies::AsteroidZeus => ObjectType::Asteroid,
             Bodies::AsteroidNessus => ObjectType::Asteroid,
+            Bodies::Comets => ObjectType::Unknown,
+            Bodies::Asteroids => ObjectType::Asteroid,
+            Bodies::Vulcan => ObjectType::Fiction,
+            Bodies::WhiteMoon => ObjectType::Fiction,
+            Bodies::Proserpina => ObjectType::Fiction,
+            Bodies::Waldemath => ObjectType::Fiction,
         }
     }
 

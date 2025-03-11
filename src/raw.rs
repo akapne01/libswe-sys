@@ -231,4 +231,44 @@ extern "C" {
 
     /// Allows to get ayanamsha name based on the integer number
     pub fn swe_get_ayanamsa_name(isidmode: i32) -> *const std::os::raw::c_char;
+
+    /*
+     * Function to calcualte planetary nodes
+     */
+    /// Compute planetary nodes and apsides (perihelia, aphelia, second focal points of
+    /// the orbital eclipses).
+    /// Both functions do exactly the same except that they expect a different time parameter.
+    ///
+    /// # Parameters:
+    /// - `tjd_ut`: Julian day number in Universal Time
+    /// - `ipl`: Planet Number
+    /// - `iflag`: Calculation Flags
+    /// - `method`: tells what kind of nodes or apsides are required:
+    ///         1 -> Means nodes and apsides are calcualtated for the bodies that have them.
+    ///              For the Moon and planets ME trhoguh NE, osculating ones for PL and the
+    ///              asteroids. This is the default method, also used in method=0;
+    ///         2 -> Osculating nodes and apsides are calculated for all bodies.
+    ///         4 -> Osculating nodes and apsides are calculated for all bodies. With planets
+    ///              beyond Jupiter, the nodes and apsides are calculated from barycentric
+    ///              positions and speed. Cf. the explanations in swisseph.doc. If this bit is
+    ///              combined with SE_NODBIT_MEAN, mean values are given for the planets Mercury - Neptune.
+    ///         256-> The second focal point of the orbital ellipse is computed and returned in the array of
+    ///               the aphelion. This bit can be combined with any other bit.
+    /// - `xnasc`: array of 6 double for ascending node
+    /// - `xndsc`: array of 6 double for descending node
+    /// - `xperi`: array of 6 double for perihelion
+    /// - `xaphe`: array of 6 double for aphelion
+    /// - `serr` : character string to contain error messages, 256 chars
+    /// P.S. When True Nodes needed, select (Osculating Nodes).
+    pub fn swe_nod_aps_ut(
+        tjd_ut: f64,
+        ipl: i32,
+        iflag: i32,
+        method: i32,
+        xnasc: *mut f64,
+        xndsc: *mut f64,
+        xperi: *mut f64,
+        xaphe: *mut f64,
+        serr: *mut c_char
+    ) -> i32;
 }

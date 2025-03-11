@@ -1,6 +1,6 @@
 [package]
 name = "libswe-sys"
-version = "0.3.0"
+version = "0.3.1"
 authors = [
     "Stéphane Bressani <s.bressani@bluewin.ch> extended by Agnese akapne01",
 ]
