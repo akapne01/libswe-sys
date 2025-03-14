@@ -85,6 +85,61 @@ extern "C" {
         serr: *mut c_char
     ) -> c_int;
 
+    /// Computes the times of rising, setting and meridian transits for all planets,
+    /// asteroids, the moon, nd the fixed stars.
+    /// Returns rising time of an object
+    /// int32 swe_rise_trans(
+    /// double tjd_ut,      /* search after this time (UT) */
+    /// int32 ipl,               /* planet number, if planet or moon */
+    /// char *starname,     /* star name, if star; must be NULL or empty, if ipl is used */
+    /// int32 epheflag,     /* ephemeris flag */
+    /// int32 rsmi,              /* integer specifying that rise, set, or one of the two meridian transits is wanted. see definition below */
+    /// double *geopos,     /* array of three doubles containing
+    ///                         * geograph. long., lat., height of observer */
+    /// double atpress      /* atmospheric pressure in mbar/hPa */
+    /// double attemp,      /* atmospheric temperature in deg. C */
+    /// double *tret,            /* return address (double) for rise time etc. */
+    /// char *serr);             /* return address for error message */
+    ///
+    /// Calculation types:
+    ///  1 -> Rise
+    ///  2 -> Set
+    ///  4 -> Upper Meridian transit (southern for northern geo. latitudes)
+    ///  8 -> Lower Meridian transit (norther, below the horizon)
+    ///  256 -> For rising or setting of disc center
+    ///  8192 -> For rising or setting of lower limb of disc
+    ///  128 -> Use geocentric (rather than topocentric) position of object and ignore its ecliptic latitude
+    ///  512 -> Don't consider refraction
+    ///  1024 -> Calculate civil twilight
+    ///  2048 -> Calculate nautical twilight
+    ///  (16*1024) -> Neglect the effect of distance on disc size
+    ///  0 -> Default: returns risings.
+    /// The rising times depend on atmospheric pressure and temperature.
+    /// atpress expects the atmospheric pressure in millibar (hectopascal); attemp the temperature in degrees Celsius.
+    /// If atpress is given the value 0, the function estimates the pressure from the geographical altitude given in
+    /// geopos[2] and attemp. If geopos[2] is 0, atpress will be estimated for sea level.
+    ///
+    /// Function return values are:
+    /// 0 if a rising, setting or transit event was found;
+    /// -1  if an error occurred (usually an ephemeris problem);
+    /// -2  if a rising or setting event was not found because the object is circumpolar.
+    /// The astronomical sunrise is defined as the time when the upper limb of the solar disk is seen appearing at the horizon.
+    /// The astronomical sunset is defined as the moment the upper limb of the solar disk disappears below the horizon.
+    /// The function swe_rise_trans() by default follows this definition of astronomical sunrises and sunsets.
+
+    pub fn swe_rise_trans(
+        tjd_ut: f64, // Julian day number
+        ipl: i32, // Planet ID (SE_SUN, SE_MOON, etc.)
+        starname: *const i8, // Empty for planets
+        epheflag: i32, // Ephemeris flag (e.g., SEFLG_SWIEPH)
+        rsmi: i32, // Calculation type (rise/set/transit)
+        geopos: *const f64, // Pointer to [longitude, latitude, altitude]
+        atpress: f64, // Atmospheric pressure
+        attemp: f64, // Atmospheric temperature
+        tret: *mut f64, // Output array for rise/set times
+        serr: *mut i8 // Error message buffer (if needed)
+    ) -> i32; // Returns error code (0 if success)
+
     /*
      * 8. Date and time conversion functions
      */
@@ -144,6 +199,27 @@ extern "C" {
         dret: *mut c_double,
         serr: *mut c_char
     ) -> c_int;
+
+    /// swe_revjul() is the inverse function to swe_julday(), see the description there.
+    /// Arguments are julian day number, calendar flag (0=julian, 1=gregorian)
+    /// return values are the calendar day, month, year and the hour of
+    /// the day with decimal fraction (0 .. 23.999999).
+    /// Be aware the we use astronomical year numbering for the years
+    /// before Christ, not the historical year numbering.
+    /// Astronomical years are done with negative numbers, historical
+    /// years with indicators BC or BCE (before common era).
+    /// Year  0 (astronomical)  	= 1 BC historical year
+    /// year -1 (astronomical) 	= 2 BC historical year
+    /// year -234 (astronomical) 	= 235 BC historical year
+    /// etc.
+    pub fn swe_revjul(
+        tjd: f64,
+        gregflag: i32,
+        year: *mut i32,
+        month: *mut i32,
+        day: *mut i32,
+        hour: *mut f64
+    );
 
     /*
      * 14. House cups calculation

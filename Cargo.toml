@@ -1,6 +1,6 @@
 [package]
 name = "libswe-sys"
-version = "0.3.1"
+version = "0.3.2"
 authors = [
     "Stéphane Bressani <s.bressani@bluewin.ch> extended by Agnese akapne01",
 ]
@@ -12,16 +12,19 @@ description = "Astrology lib connected to the C lib Swiss ephemeris (just the c 
 license-file = "LICENSE"
 
 [dependencies]
-libc = "0.2.170"
-serde = { version = "1.0.218", features = ["derive"] }
+reqwest = {version ="0.12.14", features = ["blocking", "json"]}
+libc = "0.2.171"
+serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.133"
-serde_derive = "1.0.102"
+serde_derive = "1.0.219"
 strum = "0.27.1"
 strum_macros = "0.27.1"
 libmath = "0.2.1"
 num-derive = "0.4.2"
 num-traits = "0.2"
 assert_approx_eq = "1.1.0"
+chrono = "0.4.40"
+json = "0.12.4"
 
 [build-dependencies]
 cc = { version = "1.2.16", features = ["parallel"] }
