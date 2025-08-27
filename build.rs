@@ -49,8 +49,7 @@ fn main() {
     let mut build = cc::Build::new();
 
     build
-        .flag("-g")
-        .flag("-Wall")
+        .flag("-g") // keep debug info
         .file(Path::new(&dir).join("src/swisseph/swecl.c"))
         .file(Path::new(&dir).join("src/swisseph/swedate.c"))
         .file(Path::new(&dir).join("src/swisseph/swehel.c"))
@@ -62,9 +61,10 @@ fn main() {
         .file(Path::new(&dir).join("src/swisseph/sweph.c"))
         .file(Path::new(&dir).join("src/swisseph/swephlib.c"));
 
-    // Add GCC/Clang-only flags
+    // Only add GCC/Clang flags on non-MSVC targets
     if !cfg!(target_env = "msvc") {
         build
+            .flag("-Wall")
             .flag("-Wno-unused-parameter")
             .flag("-Wno-unused-but-set-parameter")
             .flag("-Wno-missing-field-initializers")
