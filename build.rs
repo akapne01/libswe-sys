@@ -21,18 +21,6 @@ use std::path::Path;
 #[allow(dead_code)]
 fn main() {
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-
-    // Check if we're on Windows with MSVC
-    let is_msvc = env
-        ::var("TARGET")
-        .map(|t| t.contains("msvc"))
-        .unwrap_or(false);
-
-    if is_msvc {
-        // Set MSVC-specific environment variables
-        env::set_var("CFLAGS", "/W3 /MD /Zi /wd4100 /wd4189 /wd4244 /wd4267 /wd4996");
-    }
-
     let mut build = cc::Build::new();
 
     // Add all source files
@@ -53,8 +41,22 @@ fn main() {
         build.file(Path::new(&dir).join(file));
     }
 
-    // Only add flags if not MSVC (let environment variables handle MSVC)
-    if !is_msvc {
+    // Configure based on target platform
+    let target = env::var("TARGET").unwrap();
+
+    if target.contains("msvc") {
+        // MSVC-specific configuration
+        build
+            .flag("/W3") // Warning level 3
+            .flag("/MD") // Use multithreaded DLL runtime
+            .flag("/Zi") // Generate debug info
+            .flag("/wd4100") // Disable 'unreferenced formal parameter'
+            .flag("/wd4189") // Disable 'local variable initialized but not referenced'
+            .flag("/wd4244") // Disable 'conversion' warnings
+            .flag("/wd4267") // Disable 'conversion from size_t'
+            .flag("/wd4996"); // Disable deprecated function warnings
+    } else {
+        // GCC/Clang configuration
         build
             .flag("-Wall")
             .flag("-g")
@@ -66,5 +68,10 @@ fn main() {
             .flag("-Wno-unused-variable");
     }
 
+    // Compile the library
     build.compile("swe");
+
+    // Print some debug info
+    println!("cargo:warning=Building for target: {}", target);
+    println!("cargo:warning=Compiler: {:?}", build.get_compiler().path());
 }
