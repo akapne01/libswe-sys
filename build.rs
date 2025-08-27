@@ -40,21 +40,17 @@ fn main() {
         build.file(Path::new(&dir).join(f));
     }
 
-    // Get the compiler
+    // Compiler-specific flags
     let compiler = build.get_compiler();
-
-    // Configure flags based on compiler
     if compiler.is_like_msvc() {
-        // MSVC flags
-        build.flag("/W3"); // warning level 3
-        build.flag("/Zi"); // debug info
-        build.flag("/MD"); // dynamic CRT
-        // Optional: disable specific warnings
-        build.flag("/wd4100"); // unreferenced formal parameter
-        build.flag("/wd4189"); // local variable set but not used
-        build.flag("/wd4244"); // conversion warnings
+        build
+            .flag("/W3")
+            .flag("/Zi")
+            .flag("/MD")
+            .flag("/wd4100") // unreferenced parameter
+            .flag("/wd4189") // local variable set but not used
+            .flag("/wd4244"); // conversion warnings
     } else {
-        // GCC/Clang flags
         build
             .flag("-Wall")
             .flag("-g")
@@ -65,6 +61,5 @@ fn main() {
             .flag("-Wno-sign-compare");
     }
 
-    // Compile the library
     build.compile("swe");
 }
