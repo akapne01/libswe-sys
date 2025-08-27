@@ -21,6 +21,18 @@ use std::path::Path;
 #[allow(dead_code)]
 fn main() {
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+
+    // Check if we're on Windows with MSVC
+    let is_msvc = env
+        ::var("TARGET")
+        .map(|t| t.contains("msvc"))
+        .unwrap_or(false);
+
+    if is_msvc {
+        // Set MSVC-specific environment variables
+        env::set_var("CFLAGS", "/W3 /MD /Zi /wd4100 /wd4189 /wd4244 /wd4267 /wd4996");
+    }
+
     let mut build = cc::Build::new();
 
     // Add all source files
@@ -36,21 +48,13 @@ fn main() {
         "src/swisseph/sweph.c",
         "src/swisseph/swephlib.c",
     ];
-    for f in files.iter() {
-        build.file(Path::new(&dir).join(f));
+
+    for file in files.iter() {
+        build.file(Path::new(&dir).join(file));
     }
 
-    // Compiler-specific flags
-    let compiler = build.get_compiler();
-    if compiler.is_like_msvc() {
-        build
-            .flag("/W3")
-            .flag("/Zi")
-            .flag("/MD")
-            .flag("/wd4100") // unreferenced parameter
-            .flag("/wd4189") // local variable set but not used
-            .flag("/wd4244"); // conversion warnings
-    } else {
+    // Only add flags if not MSVC (let environment variables handle MSVC)
+    if !is_msvc {
         build
             .flag("-Wall")
             .flag("-g")
@@ -58,7 +62,8 @@ fn main() {
             .flag("-Wno-unused-but-set-parameter")
             .flag("-Wno-missing-field-initializers")
             .flag("-Wno-unused-function")
-            .flag("-Wno-sign-compare");
+            .flag("-Wno-sign-compare")
+            .flag("-Wno-unused-variable");
     }
 
     build.compile("swe");
