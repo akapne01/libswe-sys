@@ -47,9 +47,8 @@ fn main() {
 
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut build = cc::Build::new();
-
     build
-        .flag("-g") // keep debug info
+        .flag("-g") // debug info
         .file(Path::new(&dir).join("src/swisseph/swecl.c"))
         .file(Path::new(&dir).join("src/swisseph/swedate.c"))
         .file(Path::new(&dir).join("src/swisseph/swehel.c"))
@@ -61,8 +60,9 @@ fn main() {
         .file(Path::new(&dir).join("src/swisseph/sweph.c"))
         .file(Path::new(&dir).join("src/swisseph/swephlib.c"));
 
-    // Only add GCC/Clang flags on non-MSVC targets
-    if !cfg!(target_env = "msvc") {
+    // Detect compiler kind
+    let compiler = build.get_compiler();
+    if !compiler.is_like_msvc() {
         build
             .flag("-Wall")
             .flag("-Wno-unused-parameter")
