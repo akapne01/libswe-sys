@@ -20,51 +20,44 @@ use std::path::Path;
 
 #[allow(dead_code)]
 fn main() {
-    /*
-    let host = std::env::var("HOST").unwrap();
-    let target = std::env::var("TARGET").unwrap();
-    let mut path_header = "/usr/include".to_string();
-    if target.contains("wasm32") {
-        if host.contains("darwin") {
-            // brew install llvm
-            std::env::set_var("CC", "/usr/local/opt/llvm/bin/clang");
-            std::env::set_var("AR", "/usr/local/opt/llvm/bin/llvm-ar");
-            path_header = "/usr/local/opt/llvm/include".to_string();
-        }
-    }*/
-    /*
-     * Old Way
-     * Not work with cargo
-     *
-        let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-        println!(
-            "cargo:rustc-link-search=native={}",
-            Path::new(&dir)
-                .join("src/swisseph/src/build")
-                .display()
-        );
-    */
-
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut build = cc::Build::new();
-    build
-        .flag("-g") // debug info
-        .file(Path::new(&dir).join("src/swisseph/swecl.c"))
-        .file(Path::new(&dir).join("src/swisseph/swedate.c"))
-        .file(Path::new(&dir).join("src/swisseph/swehel.c"))
-        .file(Path::new(&dir).join("src/swisseph/swehouse.c"))
-        .file(Path::new(&dir).join("src/swisseph/swejpl.c"))
-        .file(Path::new(&dir).join("src/swisseph/swemmoon.c"))
-        .file(Path::new(&dir).join("src/swisseph/swemplan.c"))
-        .file(Path::new(&dir).join("src/swisseph/swepcalc.c"))
-        .file(Path::new(&dir).join("src/swisseph/sweph.c"))
-        .file(Path::new(&dir).join("src/swisseph/swephlib.c"));
 
-    // Detect compiler kind
+    // Add all source files
+    let files = [
+        "src/swisseph/swecl.c",
+        "src/swisseph/swedate.c",
+        "src/swisseph/swehel.c",
+        "src/swisseph/swehouse.c",
+        "src/swisseph/swejpl.c",
+        "src/swisseph/swemmoon.c",
+        "src/swisseph/swemplan.c",
+        "src/swisseph/swepcalc.c",
+        "src/swisseph/sweph.c",
+        "src/swisseph/swephlib.c",
+    ];
+    for f in files.iter() {
+        build.file(Path::new(&dir).join(f));
+    }
+
+    // Get the compiler
     let compiler = build.get_compiler();
-    if !compiler.is_like_msvc() {
+
+    // Configure flags based on compiler
+    if compiler.is_like_msvc() {
+        // MSVC flags
+        build.flag("/W3"); // warning level 3
+        build.flag("/Zi"); // debug info
+        build.flag("/MD"); // dynamic CRT
+        // Optional: disable specific warnings
+        build.flag("/wd4100"); // unreferenced formal parameter
+        build.flag("/wd4189"); // local variable set but not used
+        build.flag("/wd4244"); // conversion warnings
+    } else {
+        // GCC/Clang flags
         build
             .flag("-Wall")
+            .flag("-g")
             .flag("-Wno-unused-parameter")
             .flag("-Wno-unused-but-set-parameter")
             .flag("-Wno-missing-field-initializers")
@@ -72,5 +65,6 @@ fn main() {
             .flag("-Wno-sign-compare");
     }
 
+    // Compile the library
     build.compile("swe");
 }
