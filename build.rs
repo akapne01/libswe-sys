@@ -46,13 +46,11 @@ fn main() {
     */
 
     let dir = env::var("CARGO_MANIFEST_DIR").unwrap();
-    cc::Build
-        ::new()
-        //.include(path_header)
+    let mut build = cc::Build::new();
+
+    build
         .flag("-g")
-        //        .flag("-09")
         .flag("-Wall")
-        //.include(Path::new(&dir).join("src/clib"))
         .file(Path::new(&dir).join("src/swisseph/swecl.c"))
         .file(Path::new(&dir).join("src/swisseph/swedate.c"))
         .file(Path::new(&dir).join("src/swisseph/swehel.c"))
@@ -62,11 +60,17 @@ fn main() {
         .file(Path::new(&dir).join("src/swisseph/swemplan.c"))
         .file(Path::new(&dir).join("src/swisseph/swepcalc.c"))
         .file(Path::new(&dir).join("src/swisseph/sweph.c"))
-        .file(Path::new(&dir).join("src/swisseph/swephlib.c"))
-        .flag("-Wno-unused-parameter")
-        .flag("-Wno-unused-but-set-parameter")
-        .flag("-Wno-missing-field-initializers")
-        .flag("-Wno-unused-function")
-        .flag("-Wno-sign-compare")
-        .compile("swe")
+        .file(Path::new(&dir).join("src/swisseph/swephlib.c"));
+
+    // Add GCC/Clang-only flags
+    if !cfg!(target_env = "msvc") {
+        build
+            .flag("-Wno-unused-parameter")
+            .flag("-Wno-unused-but-set-parameter")
+            .flag("-Wno-missing-field-initializers")
+            .flag("-Wno-unused-function")
+            .flag("-Wno-sign-compare");
+    }
+
+    build.compile("swe");
 }
