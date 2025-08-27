@@ -44,12 +44,17 @@ fn main() {
     // Configure based on target platform
     let target = env::var("TARGET").unwrap();
 
+    // #### TARGET PLATFORM ###: x86_64-pc-windows-msvc
+    println!("#### TARGET PLATFORM ###: {}", target);
+
     if target.contains("msvc") {
         // MSVC-specific configuration
+        println!("### Building Windows ###");
         build
             .flag("/W3") // Warning level 3
             .flag("/MD") // Use multithreaded DLL runtime
             .flag("/Zi") // Generate debug info
+            .flag("/FS") // force MSVC to serialize access to PDB
             .flag("/wd4100") // Disable 'unreferenced formal parameter'
             .flag("/wd4189") // Disable 'local variable initialized but not referenced'
             .flag("/wd4244") // Disable 'conversion' warnings
@@ -57,6 +62,7 @@ fn main() {
             .flag("/wd4996"); // Disable deprecated function warnings
     } else {
         // GCC/Clang configuration
+        println!("### Building Other Platform ###");
         build
             .flag("-Wall")
             .flag("-g")
@@ -72,6 +78,9 @@ fn main() {
     build.compile("swe");
 
     // Print some debug info
-    println!("cargo:warning=Building for target: {}", target);
-    println!("cargo:warning=Compiler: {:?}", build.get_compiler().path());
+    println!("### cargo:warning=Building for target: {}", target);
+    println!(
+        "### cargo:warning=Compiler: {:?}",
+        build.get_compiler().path()
+    );
 }
