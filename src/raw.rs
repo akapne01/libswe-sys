@@ -1,4 +1,4 @@
-use std::os::raw::{ c_char, c_double, c_int };
+use std::os::raw::{c_char, c_double, c_int};
 // Interface https://www.astro.com/ftp/swisseph/doc/swephprg.htm#_Toc19111156
 #[link(name = "swe")]
 extern "C" {
@@ -64,7 +64,7 @@ extern "C" {
         ipl: c_int,
         iflag: c_int,
         xx: *mut c_double,
-        serr: *mut c_char
+        serr: *mut c_char,
     ) -> c_int;
 
     /*
@@ -82,7 +82,7 @@ extern "C" {
         ipl: c_int,
         iflag: c_int,
         atr: *mut c_double,
-        serr: *mut c_char
+        serr: *mut c_char,
     ) -> c_int;
 
     /// Computes the times of rising, setting and meridian transits for all planets,
@@ -126,18 +126,17 @@ extern "C" {
     /// The astronomical sunrise is defined as the time when the upper limb of the solar disk is seen appearing at the horizon.
     /// The astronomical sunset is defined as the moment the upper limb of the solar disk disappears below the horizon.
     /// The function swe_rise_trans() by default follows this definition of astronomical sunrises and sunsets.
-
     pub fn swe_rise_trans(
-        tjd_ut: f64, // Julian day number
-        ipl: i32, // Planet ID (SE_SUN, SE_MOON, etc.)
+        tjd_ut: f64,         // Julian day number
+        ipl: i32,            // Planet ID (SE_SUN, SE_MOON, etc.)
         starname: *const i8, // Empty for planets
-        epheflag: i32, // Ephemeris flag (e.g., SEFLG_SWIEPH)
-        rsmi: i32, // Calculation type (rise/set/transit)
-        geopos: *const f64, // Pointer to [longitude, latitude, altitude]
-        atpress: f64, // Atmospheric pressure
-        attemp: f64, // Atmospheric temperature
-        tret: *mut f64, // Output array for rise/set times
-        serr: *mut i8 // Error message buffer (if needed)
+        epheflag: i32,       // Ephemeris flag (e.g., SEFLG_SWIEPH)
+        rsmi: i32,           // Calculation type (rise/set/transit)
+        geopos: *const f64,  // Pointer to [longitude, latitude, altitude]
+        atpress: f64,        // Atmospheric pressure
+        attemp: f64,         // Atmospheric temperature
+        tret: *mut f64,      // Output array for rise/set times
+        serr: *mut i8,       // Error message buffer (if needed)
     ) -> i32; // Returns error code (0 if success)
 
     /*
@@ -155,7 +154,7 @@ extern "C" {
         month: c_int,
         day: c_int,
         hour: c_double,
-        gregflag: c_int
+        gregflag: c_int,
     ) -> c_double;
 
     /// void swe_utc_time_zone(
@@ -177,7 +176,7 @@ extern "C" {
         iday_out: *mut c_int,
         ihour_out: *mut c_int,
         imin_out: *mut c_int,
-        dsec_out: *mut c_double
+        dsec_out: *mut c_double,
     );
 
     /// int32 swe_utc_to_jd(
@@ -197,7 +196,7 @@ extern "C" {
         dsec: c_double,
         gregflag: c_int,
         dret: *mut c_double,
-        serr: *mut c_char
+        serr: *mut c_char,
     ) -> c_int;
 
     /// swe_revjul() is the inverse function to swe_julday(), see the description there.
@@ -218,7 +217,7 @@ extern "C" {
         year: *mut i32,
         month: *mut i32,
         day: *mut i32,
-        hour: *mut f64
+        hour: *mut f64,
     );
 
     /*
@@ -244,7 +243,7 @@ extern "C" {
         geolon: c_double,
         hsys: c_int,
         cusps: *mut c_double,
-        ascmc: *mut c_double
+        ascmc: *mut c_double,
     ) -> c_int;
 
     /// int swe_houses_ex2(
@@ -260,7 +259,7 @@ extern "C" {
         ascmc: *mut c_double,
         cusp_speed: *mut c_double,
         ascmc_speed: *mut c_double,
-        serr: *mut c_char
+        serr: *mut c_char,
     ) -> c_int;
 
     /*
@@ -288,7 +287,7 @@ extern "C" {
         imin: *mut c_int,
         isec: *mut c_int,
         cdegfr: *mut c_double,
-        isgn: *mut c_int
+        isgn: *mut c_int,
     ) -> c_double;
 
     /*
@@ -345,6 +344,39 @@ extern "C" {
         xndsc: *mut f64,
         xperi: *mut f64,
         xaphe: *mut f64,
-        serr: *mut c_char
+        serr: *mut c_char,
     ) -> i32;
+
+    pub fn swe_fixstar_ut(
+        star: *mut c_char,
+        tjd_ut: c_double,
+        iflag: c_int,
+        xx: *mut c_double,
+        serr: *mut c_char,
+    ) -> c_int;
+
+    pub fn swe_fixstar(
+        star: *mut c_char,
+        tjd_et: c_double,
+        iflag: c_int,
+        xx: *mut c_double,
+        serr: *mut c_char,
+    ) -> c_int;
+
+    pub fn swe_fixstar2_ut(
+        star: *mut c_char,
+        tjd_ut: c_double,
+        iflag: c_int,
+        xx: *mut c_double,
+        serr: *mut c_char,
+    ) -> c_int;
+
+    pub fn swe_fixstar2(
+        star: *mut c_char,
+        tjd_et: c_double,
+        iflag: c_int,
+        xx: *mut c_double,
+        serr: *mut c_char,
+    ) -> c_int;
+
 }

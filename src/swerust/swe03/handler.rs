@@ -1,7 +1,7 @@
-use crate::raw::{ self, swe_get_ayanamsa_name, swe_set_sid_mode };
+use crate::raw::{self, swe_get_ayanamsa_name, swe_set_sid_mode};
 use crate::sweconst::Bodies;
 use crate::swerust;
-use std::ffi::{ c_double, c_int, CStr, CString };
+use std::ffi::{c_double, c_int, CStr, CString};
 
 /*
  * 3. The functions swe_calc_ut() and swe_calc()
@@ -44,6 +44,86 @@ pub struct DeclinationResult {
     pub serr: String,
 }
 
+#[derive(Debug)]
+pub struct FixStarResult {
+    pub longitude: f64,
+    pub latitude: f64,
+    pub distance_au: f64,
+    pub speed_longitude: f64,
+    pub speed_latitude: f64,
+    pub speed_distance_au: f64,
+    pub star_name: String, // name returned by swe_fixstar
+    pub serr: String,      // error message if any
+    pub status: i32,       // return status from the C function
+}
+
+fn call_fixstar_fn(
+    f: unsafe extern "C" fn(*mut i8, f64, i32, *mut f64, *mut i8) -> i32,
+    star: &str,
+    tjd: f64,
+    iflag: i32,
+) -> FixStarResult {
+    let mut xx: [f64; 6] = [0.0; 6];
+    let mut serr = [0i8; 256];
+    let mut star_buf = [0i8; 41];
+
+    // Copy star name into buffer
+    let c_star = CString::new(star).unwrap();
+    let bytes = c_star.as_bytes_with_nul();
+    for (i, &b) in bytes.iter().enumerate().take(40) {
+        star_buf[i] = b as i8;
+    }
+
+    let status = unsafe {
+        f(
+            star_buf.as_mut_ptr(),
+            tjd,
+            iflag,
+            xx.as_mut_ptr(),
+            serr.as_mut_ptr(),
+        )
+    };
+
+    let star_name = unsafe { CStr::from_ptr(star_buf.as_ptr()) }
+        .to_string_lossy()
+        .into_owned();
+    let serr = unsafe { CStr::from_ptr(serr.as_ptr()) }
+        .to_string_lossy()
+        .into_owned();
+
+    FixStarResult {
+        longitude: xx[0],
+        latitude: xx[1],
+        distance_au: xx[2],
+        speed_longitude: xx[3],
+        speed_latitude: xx[4],
+        speed_distance_au: xx[5],
+        star_name,
+        serr,
+        status,
+    }
+}
+
+/// Wrapper for `swe_fixstar_ut`
+pub fn fixstar_ut(star: &str, tjd_ut: f64, iflag: i32) -> FixStarResult {
+    call_fixstar_fn(raw::swe_fixstar_ut, star, tjd_ut, iflag)
+}
+
+/// Wrapper for `swe_fixstar`
+pub fn fixstar(star: &str, tjd_et: f64, iflag: i32) -> FixStarResult {
+    call_fixstar_fn(raw::swe_fixstar, star, tjd_et, iflag)
+}
+
+/// Wrapper for `swe_fixstar2_ut`
+pub fn fixstar2_ut(star: &str, tjd_ut: f64, iflag: i32) -> FixStarResult {
+    call_fixstar_fn(raw::swe_fixstar2_ut, star, tjd_ut, iflag)
+}
+
+/// Wrapper for `swe_fixstar2`
+pub fn fixstar2(star: &str, tjd_et: f64, iflag: i32) -> FixStarResult {
+    call_fixstar_fn(raw::swe_fixstar2, star, tjd_et, iflag)
+}
+
 pub fn calc_ut(tjd_ut: f64, ipl: Bodies, iflag: i32) -> CalcUtResult {
     let mut xx: [f64; 6] = [0.0; 6];
     let mut serr = [0; 255];
@@ -53,11 +133,20 @@ pub fn calc_ut(tjd_ut: f64, ipl: Bodies, iflag: i32) -> CalcUtResult {
         let p_serr = serr.as_mut_ptr();
         let status;
         if ipl == Bodies::SouthNode {
-            status = raw::swe_calc_ut(tjd_ut, Bodies::TrueNode as i32, iflag, p_xx, p_serr);
+            status = raw::swe_calc_ut(
+                tjd_ut,
+                Bodies::TrueNode as i32,
+                iflag,
+                p_xx,
+                p_serr,
+            );
         } else {
             status = raw::swe_calc_ut(tjd_ut, ipl as i32, iflag, p_xx, p_serr);
         }
-        let s_serr = CString::from(CStr::from_ptr(p_serr)).to_str().unwrap().to_string();
+        let s_serr = CString::from(CStr::from_ptr(p_serr))
+            .to_str()
+            .unwrap()
+            .to_string();
         if ipl == Bodies::SouthNode {
             xx[0] += 180.0;
             if xx[0] >= 360.0 {
@@ -78,7 +167,11 @@ pub fn calc_ut(tjd_ut: f64, ipl: Bodies, iflag: i32) -> CalcUtResult {
     result
 }
 
-pub fn calc_ut_declination(tjd_ut: f64, body: Bodies, iflag: i32) -> DeclinationResult {
+pub fn calc_ut_declination(
+    tjd_ut: f64,
+    body: Bodies,
+    iflag: i32,
+) -> DeclinationResult {
     let mut xx: [f64; 6] = [0.0; 6];
     let mut serr = [0; 255];
     let result;
@@ -87,11 +180,20 @@ pub fn calc_ut_declination(tjd_ut: f64, body: Bodies, iflag: i32) -> Declination
         let p_serr = serr.as_mut_ptr();
         let status;
         if body == Bodies::SouthNode {
-            status = raw::swe_calc_ut(tjd_ut, Bodies::TrueNode as i32, iflag, p_xx, p_serr);
+            status = raw::swe_calc_ut(
+                tjd_ut,
+                Bodies::TrueNode as i32,
+                iflag,
+                p_xx,
+                p_serr,
+            );
         } else {
             status = raw::swe_calc_ut(tjd_ut, body as i32, iflag, p_xx, p_serr);
         }
-        let s_serr = CString::from(CStr::from_ptr(p_serr)).to_str().unwrap().to_string();
+        let s_serr = CString::from(CStr::from_ptr(p_serr))
+            .to_str()
+            .unwrap()
+            .to_string();
         if body == Bodies::SouthNode {
             xx[0] += 180.0;
             if xx[0] >= 360.0 {
@@ -109,7 +211,13 @@ pub fn calc_ut_declination(tjd_ut: f64, body: Bodies, iflag: i32) -> Declination
 
 /// Fortuna Part
 /// Only lng is valid, the speed is unknow because this object is calculated
-pub fn calc_ut_fp(tjd_ut: f64, geolat: f64, geolong: f64, hsys: char, iflag: i32) -> CalcUtResult {
+pub fn calc_ut_fp(
+    tjd_ut: f64,
+    geolat: f64,
+    geolong: f64,
+    hsys: char,
+    iflag: i32,
+) -> CalcUtResult {
     let ipl = Bodies::FortunaPart;
     let mut xx: [f64; 6] = [0.0; 6];
     let mut serr = [0; 255];
@@ -117,12 +225,21 @@ pub fn calc_ut_fp(tjd_ut: f64, geolat: f64, geolong: f64, hsys: char, iflag: i32
         let p_xx = xx.as_mut_ptr();
         let p_serr = serr.as_mut_ptr();
         let status = raw::swe_calc_ut(tjd_ut, ipl as i32, iflag, p_xx, p_serr);
-        let s_serr = CString::from(CStr::from_ptr(p_serr)).to_str().unwrap().to_string();
+        let s_serr = CString::from(CStr::from_ptr(p_serr))
+            .to_str()
+            .unwrap()
+            .to_string();
         let mut xx_sun: [f64; 6] = [0.0; 6];
         let mut xx_moon: [f64; 6] = [0.0; 6];
         let p_xx_sun = xx_sun.as_mut_ptr();
         let p_serr_sun = serr.as_mut_ptr();
-        let _status_sun = raw::swe_calc_ut(tjd_ut, Bodies::Sun as i32, iflag, p_xx_sun, p_serr_sun);
+        let _status_sun = raw::swe_calc_ut(
+            tjd_ut,
+            Bodies::Sun as i32,
+            iflag,
+            p_xx_sun,
+            p_serr_sun,
+        );
         let p_xx_moon = xx_moon.as_mut_ptr();
         let p_serr_moon = serr.as_mut_ptr();
         let _status_moon = raw::swe_calc_ut(
@@ -130,11 +247,18 @@ pub fn calc_ut_fp(tjd_ut: f64, geolat: f64, geolong: f64, hsys: char, iflag: i32
             Bodies::Moon as i32,
             iflag,
             p_xx_moon,
-            p_serr_moon
+            p_serr_moon,
         );
-        let _s_serr_sun = CString::from(CStr::from_ptr(p_serr_sun)).to_str().unwrap().to_string();
-        let _s_serr_moon = CString::from(CStr::from_ptr(p_serr_moon)).to_str().unwrap().to_string();
-        let result_houses = swerust::handler_swe14::houses(tjd_ut, geolat, geolong, hsys);
+        let _s_serr_sun = CString::from(CStr::from_ptr(p_serr_sun))
+            .to_str()
+            .unwrap()
+            .to_string();
+        let _s_serr_moon = CString::from(CStr::from_ptr(p_serr_moon))
+            .to_str()
+            .unwrap()
+            .to_string();
+        let result_houses =
+            swerust::handler_swe14::houses(tjd_ut, geolat, geolong, hsys);
         let asc_lon = result_houses.cusps[1];
         let mc_lon = result_houses.cusps[10];
         let mc_lat = 0.0;
@@ -144,7 +268,7 @@ pub fn calc_ut_fp(tjd_ut: f64, geolat: f64, geolong: f64, hsys: char, iflag: i32
             compute_sun.0,
             compute_sun.1,
             compute_mc.0,
-            compute_mc.1
+            compute_mc.1,
         );
         /*println!(
             "sw_is_diurnal: {}asc: {}moon: {}sun: {}",
@@ -196,18 +320,27 @@ fn eq_coords(lon: f64, lat: f64) -> (f64, f64) {
     let epson = (23.44_f64).to_radians(); // the earth inclinaison
 
     // Declinaison in radian
-    let decl = (epson.sin() * lambda.sin() * beta.cos() + epson.cos() * beta.sin()).asin();
+    let decl = (epson.sin() * lambda.sin() * beta.cos()
+        + epson.cos() * beta.sin())
+    .asin();
 
     // Equatorial distance
     let ed = ((lambda.cos() * beta.cos()) / decl.cos()).acos();
 
     // RA in radian
-    let mut ra = if lon < 100.0 { ed } else { (360.0_f64).to_radians() - ed };
+    let mut ra = if lon < 100.0 {
+        ed
+    } else {
+        (360.0_f64).to_radians() - ed
+    };
 
     // Correctness of RA if longitude is close to 0° or 180° in a radius of 5°
-    if closest_distance(lon, 0.0).abs() < 5.0 || closest_distance(lon, 180.0).abs() < 5.0 {
+    if closest_distance(lon, 0.0).abs() < 5.0
+        || closest_distance(lon, 180.0).abs() < 5.0
+    {
         let a = ra.sin() * decl.cos();
-        let b = epson.cos() * lambda.sin() * beta.cos() - epson.sin() * beta.sin();
+        let b =
+            epson.cos() * lambda.sin() * beta.cos() - epson.sin() * beta.sin();
         if (a - b).abs() > 0.0003 {
             ra = (360.0_f64).to_radians() - ra;
         }
@@ -263,7 +396,11 @@ fn znorm(mut angle: f64) -> f64 {
 /// ayan_t0: The ayanamsha value at t0 (used if defining a custom ayanamsha).
 pub fn set_sidereal_mode_ext(sid_mode: i32, t0: f64, ayan_t0: f64) {
     unsafe {
-        swe_set_sid_mode(sid_mode as c_int, t0 as c_double, ayan_t0 as c_double);
+        swe_set_sid_mode(
+            sid_mode as c_int,
+            t0 as c_double,
+            ayan_t0 as c_double,
+        );
     }
 }
 
@@ -291,20 +428,24 @@ pub fn get_ayanamsha_name(isidmode: i32) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use assert_approx_eq::assert_approx_eq;
-    use swerust::{ handler_swe02::set_ephe_path, handler_swe08::{ utc_time_zone, utc_to_jd } };
+    use super::*;
     use crate::{
-        constants::{ Ayanamsha, CalculationFlags, EPHEMERIS_PATH },
+        constants::{Ayanamsha, CalculationFlags, EPHEMERIS_PATH},
         sweconst::Calendar,
         swerust::handler_swe02::version,
     };
-    use super::*;
+    use assert_approx_eq::assert_approx_eq;
+    use swerust::{
+        handler_swe02::set_ephe_path,
+        handler_swe08::{utc_time_zone, utc_to_jd},
+    };
 
     #[test]
     pub fn test_calc_ut_jupiter() {
         set_ephe_path(EPHEMERIS_PATH);
         let date = get_test_date_time();
-        let result = calc_ut(date, Bodies::Jupiter, CalculationFlags::SPEED_PRECISION);
+        let result =
+            calc_ut(date, Bodies::Jupiter, CalculationFlags::SPEED_PRECISION);
         println!("result: {:?}", result);
         println!("Version {}", version());
         assert_approx_eq!(result.longitude, 78.40564471604982);
@@ -319,8 +460,13 @@ mod tests {
     pub fn test_jupiter_sidereal_calculations() {
         set_ephe_path(EPHEMERIS_PATH);
         let date = get_test_date_time();
-        set_sidereal_mode_ext(Ayanamsha::GALACTIC_CENTER_MULA_WILHELM, 0.0, 0.0);
-        let flags = CalculationFlags::SIDEREAL_POSITIONS + CalculationFlags::SPEED_PRECISION;
+        set_sidereal_mode_ext(
+            Ayanamsha::GALACTIC_CENTER_MULA_WILHELM,
+            0.0,
+            0.0,
+        );
+        let flags = CalculationFlags::SIDEREAL_POSITIONS
+            + CalculationFlags::SPEED_PRECISION;
         let expected_result = CalcUtResult {
             longitude: 58.003363748316765,
             latitude: -0.699506667783935,
@@ -340,7 +486,8 @@ mod tests {
     pub fn test_calc_ut_chiron() {
         set_ephe_path(EPHEMERIS_PATH);
         let date = get_test_date_time();
-        let result = calc_ut(date, Bodies::Chiron, CalculationFlags::SPEED_PRECISION);
+        let result =
+            calc_ut(date, Bodies::Chiron, CalculationFlags::SPEED_PRECISION);
         println!("result: {:?}", result);
         println!("Version {}", version());
         assert_approx_eq!(result.longitude, 19.65362532280687);
@@ -355,8 +502,13 @@ mod tests {
     pub fn test_chiron_sidereal_calculations() {
         set_ephe_path(EPHEMERIS_PATH);
         let date = get_test_date_time();
-        set_sidereal_mode_ext(Ayanamsha::GALACTIC_CENTER_MULA_WILHELM, 0.0, 0.0);
-        let flags = CalculationFlags::SIDEREAL_POSITIONS + CalculationFlags::SPEED_PRECISION;
+        set_sidereal_mode_ext(
+            Ayanamsha::GALACTIC_CENTER_MULA_WILHELM,
+            0.0,
+            0.0,
+        );
+        let flags = CalculationFlags::SIDEREAL_POSITIONS
+            + CalculationFlags::SPEED_PRECISION;
         let expected_result = CalcUtResult {
             longitude: 359.25134435507385,
             latitude: 1.0160010541224618,
@@ -379,16 +531,18 @@ mod tests {
         let result = calc_ut_declination(
             test_date_time,
             Bodies::Jupiter,
-            CalculationFlags::EQUATORIAL_POSITIONS
+            CalculationFlags::EQUATORIAL_POSITIONS,
         );
         assert_approx_eq!(result.declination, 22.235712853294377);
     }
 
     #[test]
     pub fn test_get_ayanamsha_name() {
-        let expected_result = Some("Dhruva/Gal.Center/Mula (Wilhelm)".to_string());
+        let expected_result =
+            Some("Dhruva/Gal.Center/Mula (Wilhelm)".to_string());
 
-        let actual_result = get_ayanamsha_name(Ayanamsha::GALACTIC_CENTER_MULA_WILHELM);
+        let actual_result =
+            get_ayanamsha_name(Ayanamsha::GALACTIC_CENTER_MULA_WILHELM);
 
         assert_eq!(actual_result, expected_result);
     }
@@ -402,7 +556,7 @@ mod tests {
             utc_time_zone.hour[0],
             utc_time_zone.min[0],
             utc_time_zone.sec[0],
-            Calendar::Gregorian
+            Calendar::Gregorian,
         );
         jd.julian_day_ut
     }
