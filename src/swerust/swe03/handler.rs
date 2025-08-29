@@ -25,7 +25,7 @@ use std::ffi::{c_double, c_int, CStr, CString};
  * Speed in latitude (deg/day)     speed in declination (deg/day)
  * Speed in distance (AU/day)      speed in distance (AU/day)
  */
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct CalcUtResult {
     pub longitude: f64,
     pub latitude: f64,
@@ -37,14 +37,14 @@ pub struct CalcUtResult {
     pub serr: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DeclinationResult {
     pub declination: f64,
     pub status: i32,
     pub serr: String,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FixStarResult {
     pub longitude: f64,
     pub latitude: f64,
@@ -57,7 +57,7 @@ pub struct FixStarResult {
     pub status: i32,       // return status from the C function
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FixStarMagResult {
     pub magnitude: f64,
     pub star_name: String,
