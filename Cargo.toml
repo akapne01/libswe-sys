@@ -25,6 +25,10 @@ num-traits = "0.2"
 assert_approx_eq = "1.1.0"
 chrono = "0.4.40"
 json = "0.12.4"
+rust-embed = "8.7.2"
+thiserror = "2.0.16"
+tempfile = "3.21.0"
+dirs-next = "2.0"
 
 [build-dependencies]
 cc = { version = "1.2.16", features = ["parallel"] }

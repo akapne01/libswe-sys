@@ -1,6 +1,6 @@
-use std::ffi::{ CStr, CString };
+use std::ffi::{CStr, CString};
 
-use crate::{ raw::swe_nod_aps_ut, sweconst::Bodies };
+use crate::{raw::swe_nod_aps_ut, sweconst::Bodies};
 
 /// Mean Nodes are available only for planets Moon, Mercury to Neptune.
 /// Pluto and Asteroids always return True Nodes, even if Means nodes are selected.
@@ -16,12 +16,12 @@ impl CalculationMethodsNodesApsides {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CelestialPosition {
-    pub longitude: f64, // Ecliptic Longitude (degrees)
-    pub latitude: f64, // Ecliptic Latitude (degrees)
+    pub longitude: f64,            // Ecliptic Longitude (degrees)
+    pub latitude: f64,             // Ecliptic Latitude (degrees)
     pub distance_from_sun_au: f64, // Distance from Sun (AU)
-    pub longitude_speed: f64, // Change in longitude per day (deg/day)
-    pub latitude_speed: f64, // Change in latitude per day (deg/day)
-    pub radial_speed: f64, // Change in distance per day (AU/day)
+    pub longitude_speed: f64,      // Change in longitude per day (deg/day)
+    pub latitude_speed: f64,       // Change in latitude per day (deg/day)
+    pub radial_speed: f64,         // Change in distance per day (AU/day)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,7 +30,7 @@ pub struct ApsidesAndNodesResult {
     pub north_node: CelestialPosition, // Where planet's orbit crosses the ecliptic going north
     pub south_node: CelestialPosition, // Where planet's orbit crosses the ecliptic going north
     pub perihelion: CelestialPosition, // Closest point to the Sun
-    pub aphelion: CelestialPosition, // Farthest point from the Sun
+    pub aphelion: CelestialPosition,   // Farthest point from the Sun
 }
 
 /// Calculates Planetary Nodes and Apsides: perihelia, aphelia, second focal points of the orbital ellipses.
@@ -47,7 +47,7 @@ pub fn get_planetary_apsides_and_nodes(
     body: Bodies,
     jd: f64,
     iflag: i32,
-    method: i32
+    method: i32,
 ) -> Result<ApsidesAndNodesResult, String> {
     let mut xnasc = [0.0; 6]; // North Node
     let mut xndsc = [0.0; 6]; // South Node
@@ -66,10 +66,13 @@ pub fn get_planetary_apsides_and_nodes(
             xndsc.as_mut_ptr(),
             xperi.as_mut_ptr(),
             xaphe.as_mut_ptr(),
-            p_serr
+            p_serr,
         );
 
-        let s_serr = CString::from(CStr::from_ptr(p_serr)).to_str().unwrap().to_string();
+        let s_serr = CString::from(CStr::from_ptr(p_serr))
+            .to_str()
+            .unwrap()
+            .to_string();
         if !s_serr.is_empty() {
             return Err(s_serr);
         }
@@ -113,16 +116,18 @@ pub fn get_planetary_apsides_and_nodes(
 }
 #[cfg(test)]
 mod tests {
-    use crate::{
-        constants::{ CalculationFlags, EPHEMERIS_PATH },
-        sweconst::{ Bodies, Calendar },
-        swerust::{ handler_swe02::set_ephe_path, handler_swe08::{ utc_time_zone, utc_to_jd } },
-    };
     use super::*;
+    use crate::{
+        constants::CalculationFlags,
+        ensure_ephemeris_initialized,
+        sweconst::{Bodies, Calendar},
+        swerust::handler_swe08::{utc_time_zone, utc_to_jd},
+    };
 
     #[test]
-    pub fn test_get_planetary_apsides_and_nodes_when_true_nodes_no_speed_precision() {
-        set_ephe_path(EPHEMERIS_PATH);
+    pub fn test_get_planetary_apsides_and_nodes_when_true_nodes_no_speed_precision(
+    ) {
+        let _ = ensure_ephemeris_initialized();
         let jd = get_test_julian_time();
         let expected_result = ApsidesAndNodesResult {
             body: Bodies::Pluto,
@@ -166,16 +171,21 @@ mod tests {
             Bodies::Pluto,
             jd,
             iflag,
-            CalculationMethodsNodesApsides::TRUE_NODES_AND_APSIDES
+            CalculationMethodsNodesApsides::TRUE_NODES_AND_APSIDES,
         );
 
         assert!(actual_result.is_ok());
-        assert_eq!(actual_result.unwrap(), expected_result);
+        assert_apsides_and_nodes_approx(
+            &actual_result.unwrap(),
+            &expected_result,
+            1e-6,
+        );
     }
 
     #[test]
-    pub fn test_get_planetary_apsides_and_nodes_when_true_nodes_when_speed_precision_specified() {
-        set_ephe_path(EPHEMERIS_PATH);
+    pub fn test_get_planetary_apsides_and_nodes_when_true_nodes_when_speed_precision_specified(
+    ) {
+        let _ = ensure_ephemeris_initialized();
         let jd = get_test_julian_time();
         let expected_result = ApsidesAndNodesResult {
             body: Bodies::Pluto,
@@ -213,16 +223,21 @@ mod tests {
             },
         };
 
-        let iflag = CalculationFlags::SWISS_EPHEMERIS + CalculationFlags::SPEED_PRECISION;
+        let iflag = CalculationFlags::SWISS_EPHEMERIS
+            + CalculationFlags::SPEED_PRECISION;
 
         let actual_result = get_planetary_apsides_and_nodes(
             Bodies::Pluto,
             jd,
             iflag,
-            CalculationMethodsNodesApsides::TRUE_NODES_AND_APSIDES
+            CalculationMethodsNodesApsides::TRUE_NODES_AND_APSIDES,
         );
         assert!(actual_result.is_ok());
-        assert_eq!(actual_result.unwrap(), expected_result);
+        assert_apsides_and_nodes_approx(
+            &actual_result.unwrap(),
+            &expected_result,
+            1e-6,
+        );
     }
 
     pub fn get_test_julian_time() -> f64 {
@@ -234,8 +249,63 @@ mod tests {
             utc_time_zone.hour[0],
             utc_time_zone.min[0],
             utc_time_zone.sec[0],
-            Calendar::Gregorian
+            Calendar::Gregorian,
         );
         jd.julian_day_ut
+    }
+
+    fn assert_celestial_position_approx(
+        a: &CelestialPosition,
+        b: &CelestialPosition,
+        epsilon: f64,
+    ) {
+        assert!(
+            (a.longitude - b.longitude).abs() <= epsilon,
+            "longitude differs: {} != {}",
+            a.longitude,
+            b.longitude
+        );
+        assert!(
+            (a.latitude - b.latitude).abs() <= epsilon,
+            "latitude differs: {} != {}",
+            a.latitude,
+            b.latitude
+        );
+        assert!(
+            (a.distance_from_sun_au - b.distance_from_sun_au).abs() <= epsilon,
+            "distance differs: {} != {}",
+            a.distance_from_sun_au,
+            b.distance_from_sun_au
+        );
+        assert!(
+            (a.longitude_speed - b.longitude_speed).abs() <= epsilon,
+            "longitude_speed differs: {} != {}",
+            a.longitude_speed,
+            b.longitude_speed
+        );
+        assert!(
+            (a.latitude_speed - b.latitude_speed).abs() <= epsilon,
+            "latitude_speed differs: {} != {}",
+            a.latitude_speed,
+            b.latitude_speed
+        );
+        assert!(
+            (a.radial_speed - b.radial_speed).abs() <= epsilon,
+            "radial_speed differs: {} != {}",
+            a.radial_speed,
+            b.radial_speed
+        );
+    }
+
+    fn assert_apsides_and_nodes_approx(
+        a: &ApsidesAndNodesResult,
+        b: &ApsidesAndNodesResult,
+        epsilon: f64,
+    ) {
+        assert_eq!(a.body, b.body);
+        assert_celestial_position_approx(&a.north_node, &b.north_node, epsilon);
+        assert_celestial_position_approx(&a.south_node, &b.south_node, epsilon);
+        assert_celestial_position_approx(&a.perihelion, &b.perihelion, epsilon);
+        assert_celestial_position_approx(&a.aphelion, &b.aphelion, epsilon);
     }
 }

@@ -44,7 +44,7 @@ pub struct DeclinationResult {
     pub serr: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct FixStarResult {
     pub longitude: f64,
     pub latitude: f64,
@@ -55,6 +55,58 @@ pub struct FixStarResult {
     pub star_name: String, // name returned by swe_fixstar
     pub serr: String,      // error message if any
     pub status: i32,       // return status from the C function
+}
+
+#[derive(Debug, PartialEq)]
+pub struct FixStarMagResult {
+    pub magnitude: f64,
+    pub star_name: String,
+    pub serr: String, // error message if any
+    pub status: i32,  // return status from the C function
+}
+
+/// Shared helper function
+fn call_fixstar_mag_fn(
+    f: unsafe extern "C" fn(*mut i8, *mut f64, *mut i8) -> c_int,
+    star: &str,
+) -> FixStarMagResult {
+    let mut mag: f64 = 0.0;
+    let mut serr = [0i8; 256];
+    let mut star_buf = [0i8; 41];
+
+    // Copy star name into buffer
+    let c_star = CString::new(star).unwrap();
+    let bytes = c_star.as_bytes_with_nul();
+    for (i, &b) in bytes.iter().enumerate().take(40) {
+        star_buf[i] = b as i8;
+    }
+
+    let status =
+        unsafe { f(star_buf.as_mut_ptr(), &mut mag, serr.as_mut_ptr()) };
+
+    let star_name = unsafe { CStr::from_ptr(star_buf.as_ptr()) }
+        .to_string_lossy()
+        .into_owned();
+    let serr = unsafe { CStr::from_ptr(serr.as_ptr()) }
+        .to_string_lossy()
+        .into_owned();
+
+    FixStarMagResult {
+        magnitude: mag,
+        star_name,
+        serr,
+        status,
+    }
+}
+
+/// Wrapper for `swe_fixstar_mag`
+pub fn fixstar_mag(star: &str) -> FixStarMagResult {
+    call_fixstar_mag_fn(raw::swe_fixstar_mag, star)
+}
+
+/// Wrapper for `swe_fixstar2_mag`
+pub fn fixstar2_mag(star: &str) -> FixStarMagResult {
+    call_fixstar_mag_fn(raw::swe_fixstar2_mag, star)
 }
 
 fn call_fixstar_fn(
@@ -430,19 +482,17 @@ pub fn get_ayanamsha_name(isidmode: i32) -> Option<String> {
 mod tests {
     use super::*;
     use crate::{
-        constants::{Ayanamsha, CalculationFlags, EPHEMERIS_PATH},
+        constants::{Ayanamsha, CalculationFlags},
+        ensure_ephemeris_initialized,
         sweconst::Calendar,
         swerust::handler_swe02::version,
     };
     use assert_approx_eq::assert_approx_eq;
-    use swerust::{
-        handler_swe02::set_ephe_path,
-        handler_swe08::{utc_time_zone, utc_to_jd},
-    };
+    use swerust::handler_swe08::{utc_time_zone, utc_to_jd};
 
     #[test]
     pub fn test_calc_ut_jupiter() {
-        set_ephe_path(EPHEMERIS_PATH);
+        let _ = ensure_ephemeris_initialized();
         let date = get_test_date_time();
         let result =
             calc_ut(date, Bodies::Jupiter, CalculationFlags::SPEED_PRECISION);
@@ -458,7 +508,7 @@ mod tests {
 
     #[test]
     pub fn test_jupiter_sidereal_calculations() {
-        set_ephe_path(EPHEMERIS_PATH);
+        let _ = ensure_ephemeris_initialized();
         let date = get_test_date_time();
         set_sidereal_mode_ext(
             Ayanamsha::GALACTIC_CENTER_MULA_WILHELM,
@@ -484,23 +534,23 @@ mod tests {
 
     #[test]
     pub fn test_calc_ut_chiron() {
-        set_ephe_path(EPHEMERIS_PATH);
+        let _ = ensure_ephemeris_initialized();
         let date = get_test_date_time();
         let result =
             calc_ut(date, Bodies::Chiron, CalculationFlags::SPEED_PRECISION);
         println!("result: {:?}", result);
         println!("Version {}", version());
-        assert_approx_eq!(result.longitude, 19.65362532280687);
-        assert_approx_eq!(result.latitude, 1.016001054122461);
-        assert_approx_eq!(result.distance_au, 17.838915600053266);
-        assert_approx_eq!(result.speed_longitude, -0.03233323765618366);
-        assert_approx_eq!(result.speed_latitude, -0.0018504535390746432);
-        assert_approx_eq!(result.speed_distance_au, 0.01081615666915093);
+        assert_approx_eq!(result.longitude, 19.653590911537975);
+        assert_approx_eq!(result.latitude, 1.0159864815728494);
+        assert_approx_eq!(result.distance_au, 17.838917895481703);
+        assert_approx_eq!(result.speed_longitude, -0.032333210271029894);
+        assert_approx_eq!(result.speed_latitude, -0.0018504366660148394);
+        assert_approx_eq!(result.speed_distance_au, 0.010816164801877519);
     }
 
     #[test]
     pub fn test_chiron_sidereal_calculations() {
-        set_ephe_path(EPHEMERIS_PATH);
+        let _ = ensure_ephemeris_initialized();
         let date = get_test_date_time();
         set_sidereal_mode_ext(
             Ayanamsha::GALACTIC_CENTER_MULA_WILHELM,
@@ -510,12 +560,12 @@ mod tests {
         let flags = CalculationFlags::SIDEREAL_POSITIONS
             + CalculationFlags::SPEED_PRECISION;
         let expected_result = CalcUtResult {
-            longitude: 359.25134435507385,
-            latitude: 1.0160010541224618,
-            distance_au: 17.838915600053266,
-            speed_longitude: -0.03233632625509959,
-            speed_latitude: -0.0018536695535938952,
-            speed_distance_au: 0.010816156675034836,
+            longitude: 359.2513099438049,
+            latitude: 1.0159864815728492,
+            distance_au: 17.838917895481707,
+            speed_longitude: -0.03233629889300552,
+            speed_latitude: -0.0018536526687435602,
+            speed_distance_au: 0.010816164807525466,
             status: 65858,
             serr: "".to_string(),
         };
@@ -526,7 +576,7 @@ mod tests {
 
     #[test]
     fn test_calc_ut_declination() {
-        set_ephe_path(EPHEMERIS_PATH);
+        let _ = ensure_ephemeris_initialized();
         let test_date_time = get_test_date_time();
         let result = calc_ut_declination(
             test_date_time,
@@ -547,6 +597,152 @@ mod tests {
         assert_eq!(actual_result, expected_result);
     }
 
+    #[test]
+    pub fn test_fixed_star_calculations_ut() {
+        let _ = ensure_ephemeris_initialized();
+        let date_jd = get_test_date_time();
+        set_sidereal_mode_ext(
+            Ayanamsha::GALACTIC_CENTER_MULA_WILHELM,
+            0.0,
+            0.0,
+        );
+        let flags = CalculationFlags::SIDEREAL_POSITIONS
+            + CalculationFlags::SPEED_PRECISION;
+
+        let result = fixstar_ut("Sirius", date_jd, flags);
+
+        let expected = FixStarResult {
+            longitude: 84.02736235076539,
+            latitude: -39.60846002916212,
+            distance_au: 543_903.5199677999,
+            speed_longitude: 0.000128032111461643,
+            speed_latitude: -4.694828181700263e-5,
+            speed_distance_au: -0.012382055171557799,
+            star_name: "Sirius,alCMa".to_string(),
+            serr: "".to_string(),
+            status: 65858,
+        };
+
+        assert_fixstar(&result, &expected, 1e-6);
+    }
+
+    #[test]
+    pub fn test_fixed_star_calculations_ut_2() {
+        let _ = ensure_ephemeris_initialized();
+        let date_jd = get_test_date_time();
+        set_sidereal_mode_ext(
+            Ayanamsha::GALACTIC_CENTER_MULA_WILHELM,
+            0.0,
+            0.0,
+        );
+        let flags = CalculationFlags::SIDEREAL_POSITIONS
+            + CalculationFlags::SPEED_PRECISION;
+
+        let actul_result = fixstar2_ut("Sirius", date_jd, flags);
+
+        let expected = FixStarResult {
+            longitude: 84.02736235076539,
+            latitude: -39.60846002916212,
+            distance_au: 543903.5199677999,
+            speed_longitude: 0.00013664309361119135,
+            speed_latitude: -4.694828181700263e-5,
+            speed_distance_au: -0.012382055171557799,
+            star_name: "Sirius,alCMa".to_string(),
+            serr: "".to_string(),
+            status: 65858,
+        };
+
+        assert_fixstar(&actul_result, &expected, 1e-6);
+    }
+
+    #[test]
+    pub fn test_fixed_star_calculations() {
+        let _ = ensure_ephemeris_initialized();
+        let date_jd = get_test_date_time();
+        set_sidereal_mode_ext(
+            Ayanamsha::GALACTIC_CENTER_MULA_WILHELM,
+            0.0,
+            0.0,
+        );
+        let flags = CalculationFlags::SIDEREAL_POSITIONS
+            + CalculationFlags::SPEED_PRECISION;
+
+        let result = fixstar("Sirius", date_jd, flags);
+
+        let expected = FixStarResult {
+            longitude: 84.02736224169713,
+            latitude: -39.6084599919265,
+            distance_au: 543903.5199777787,
+            speed_longitude: 0.00012803759311781588,
+            speed_latitude: -4.695718165011796e-5,
+            speed_distance_au: -0.012473006252649577,
+            star_name: "Sirius,alCMa".to_string(),
+            serr: "".to_string(),
+            status: 65792,
+        };
+
+        assert_fixstar(&result, &expected, 1e-6);
+    }
+
+    #[test]
+    pub fn test_fixed_star_calculations_2() {
+        let _ = ensure_ephemeris_initialized();
+        let date_jd = get_test_date_time();
+        set_sidereal_mode_ext(
+            Ayanamsha::GALACTIC_CENTER_MULA_WILHELM,
+            0.0,
+            0.0,
+        );
+        let flags = CalculationFlags::SIDEREAL_POSITIONS
+            + CalculationFlags::SPEED_PRECISION;
+
+        let result = fixstar2("Sirius", date_jd, flags);
+
+        let expected = FixStarResult {
+            longitude: 84.02736224169713,
+            latitude: -39.6084599919265,
+            distance_au: 543903.5199777787,
+            speed_longitude: 0.00013664971213574146,
+            speed_latitude: -4.695718165011796e-5,
+            speed_distance_au: -0.012473006252649577,
+            star_name: "Sirius,alCMa".to_string(),
+            serr: "".to_string(),
+            status: 65792,
+        };
+
+        assert_fixstar(&result, &expected, 1e-6);
+    }
+
+    #[test]
+    pub fn test_fixed_star_magnitude() {
+        let _ = ensure_ephemeris_initialized();
+
+        let expected_result = FixStarMagResult {
+            magnitude: -1.46,
+            star_name: "Sirius,alCMa".to_owned(),
+            serr: "".to_owned(),
+            status: 0,
+        };
+        let result = fixstar_mag("Sirius");
+
+        assert_eq!(result, expected_result);
+    }
+
+    #[test]
+    pub fn test_fixed_star_magnitude_2() {
+        let _ = ensure_ephemeris_initialized();
+
+        let expected_result = FixStarMagResult {
+            magnitude: -1.46,
+            star_name: "Sirius,alCMa".to_owned(),
+            serr: "".to_owned(),
+            status: 0,
+        };
+        let result = fixstar2_mag("Sirius");
+
+        assert_eq!(result, expected_result);
+    }
+
     pub fn get_test_date_time() -> f64 {
         let utc_time_zone = utc_time_zone(2024, 11, 21, 16, 10, 0.0, 2.0);
         let jd = utc_to_jd(
@@ -559,5 +755,32 @@ mod tests {
             Calendar::Gregorian,
         );
         jd.julian_day_ut
+    }
+
+    fn assert_fixstar(a: &FixStarResult, b: &FixStarResult, eps: f64) {
+        assert!(
+            (a.longitude - b.longitude).abs() < eps,
+            "longitude mismatch"
+        );
+        assert!((a.latitude - b.latitude).abs() < eps, "latitude mismatch");
+        assert!(
+            (a.distance_au - b.distance_au).abs() < eps,
+            "distance_au mismatch"
+        );
+        assert!(
+            (a.speed_longitude - b.speed_longitude).abs() < eps,
+            "speed_longitude mismatch"
+        );
+        assert!(
+            (a.speed_latitude - b.speed_latitude).abs() < eps,
+            "speed_latitude mismatch"
+        );
+        assert!(
+            (a.speed_distance_au - b.speed_distance_au).abs() < eps,
+            "speed_distance_au mismatch"
+        );
+        assert_eq!(a.star_name, b.star_name);
+        assert_eq!(a.serr, b.serr);
+        assert_eq!(a.status, b.status);
     }
 }

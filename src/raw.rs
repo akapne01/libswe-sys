@@ -379,4 +379,16 @@ extern "C" {
         serr: *mut c_char,
     ) -> c_int;
 
+    pub fn swe_fixstar_mag(
+        star: *mut c_char,
+        mag: *mut c_double,
+        serr: *mut c_char,
+    ) -> c_int;
+
+    pub fn swe_fixstar2_mag(
+        star: *mut c_char,
+        mag: *mut c_double,
+        serr: *mut c_char,
+    ) -> c_int;
+
 }
