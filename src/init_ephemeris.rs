@@ -41,14 +41,14 @@ pub enum EphemerisError {
     #[error("Version mismatch, expected: {expected}, found: {found}")]
     VersionMismatch { expected: String, found: String },
 
-    #[error(transparent)]
-    Io(std::io::Error),
-}
+    #[error("Failed to create directory {0:?}: {1}")]
+    DirectoryCreateFailed(PathBuf, #[source] std::io::Error),
 
-impl From<std::io::Error> for EphemerisError {
-    fn from(e: std::io::Error) -> Self {
-        EphemerisError::Io(e)
-    }
+    #[error("Failed to write file {0:?}: {1}")]
+    FileWriteFailed(PathBuf, #[source] std::io::Error),
+
+    #[error("Other IO error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 /// Represents the embedded ephemeris files.
@@ -81,15 +81,24 @@ pub fn ensure_ephemeris_initialized() -> Result<()> {
 
     // Extract embedded files only if the folder doesn't exist yet
     if !target.exists() {
-        fs::create_dir_all(&target)?;
+        fs::create_dir_all(&target).map_err(|e| {
+            EphemerisError::DirectoryCreateFailed(target.clone(), e)
+        })?;
 
         for file_name in EmbeddedEphemeris::iter() {
             if let Some(file) = EmbeddedEphemeris::get(&file_name) {
                 let path = target.join(file_name.as_ref());
                 if let Some(parent) = path.parent() {
-                    fs::create_dir_all(parent)?;
+                    fs::create_dir_all(parent).map_err(|e| {
+                        EphemerisError::DirectoryCreateFailed(
+                            parent.to_path_buf(),
+                            e,
+                        )
+                    })?;
                 }
-                fs::write(&path, &file.data)?; // write embedded file
+                fs::write(&path, &file.data).map_err(|e| {
+                    EphemerisError::FileWriteFailed(path.clone(), e)
+                })?;
             }
         }
     }
