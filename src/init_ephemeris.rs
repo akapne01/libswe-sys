@@ -127,6 +127,7 @@ pub fn initialize_ephemeris_with_path<P: AsRef<Path>>(path: P) -> Result<()> {
         .ok_or_else(|| EphemerisError::InvalidPath(path.to_path_buf()))?;
 
     if !path.exists() {
+        eprintln!("[DEBUG] Ephemeris path does not exist: {:?}", path);
         return Err(EphemerisError::PathDoesNotExist(path.to_path_buf()));
     }
 
@@ -134,12 +135,16 @@ pub fn initialize_ephemeris_with_path<P: AsRef<Path>>(path: P) -> Result<()> {
     let mut has_se1_files = false;
     let mut has_txt_files = false;
 
+    eprintln!("[DEBUG] Scanning ephemeris directory: {:?}", path);
+
     // Scan directory for files
     for entry in fs::read_dir(path).map_err(|e| {
         EphemerisError::DirectoryReadFailed(path.to_path_buf(), e)
     })? {
         if let Ok(entry) = entry {
             let p = entry.path();
+            eprintln!("[DEBUG] Found file: {:?}", p);
+
             if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
                 match ext {
                     "se1" => has_se1_files = true,
@@ -151,12 +156,15 @@ pub fn initialize_ephemeris_with_path<P: AsRef<Path>>(path: P) -> Result<()> {
     }
 
     if !has_se1_files {
+        eprintln!("[DEBUG] No .se1 files found in {:?}", path);
         return Err(EphemerisError::FilesMissing(path.to_path_buf()));
     }
     if !has_txt_files {
+        eprintln!("[DEBUG] No .txt files found in {:?}", path);
         return Err(EphemerisError::FilesMissing(path.to_path_buf()));
     }
 
+    eprintln!("[DEBUG] Setting ephemeris path to: {:?}", path_str);
     set_ephe_path(path_str);
 
     // (Optional) If you want JPL DE file instead of Swiss .se1 files:
@@ -171,6 +179,10 @@ pub fn initialize_ephemeris_with_path<P: AsRef<Path>>(path: P) -> Result<()> {
             found: found_version,
         });
     }
+    eprintln!(
+        "[DEBUG] Found version: {}, Expected: {}",
+        found_version, expected_version
+    );
 
     Ok(())
 }
