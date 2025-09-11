@@ -77,7 +77,7 @@ pub fn ensure_ephemeris_initialized() -> Result<()> {
     // Choose a permanent, shared cache location
     let target = std::env::var("EPHEMERIS_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("/app/ephemeris"));
+        .unwrap_or_else(|_| PathBuf::from("./app/ephemeris"));
 
     // Extract embedded files only if the folder doesn't exist yet
     if !target.exists() {
