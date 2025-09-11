@@ -11,14 +11,15 @@
 //! - Extraction only occurs if the target cache folder does not already exist.
 //! - The native Swiss Ephemeris library is configured every time by calling
 //!   `initialize_ephemeris_with_path()`.
-//! - Initialization is idempotent: repeated calls do nothing if extraction has already occurred.
+//! - Initialization is thread-safe and idempotent: repeated calls do nothing if extraction has already occurred.
 use rust_embed::RustEmbed;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Mutex, Once};
 use thiserror::Error;
 
+use crate::swerust::handler_swe02::{set_ephe_path, version};
 use std::fs;
 use std::path::{Path, PathBuf};
-
-use crate::swerust::handler_swe02::{set_ephe_path, version};
 
 /// Type alias for results returned by this module.
 pub type Result<T> = std::result::Result<T, EphemerisError>;
@@ -61,6 +62,11 @@ pub enum EphemerisError {
 #[folder = "src/swisseph/ephe"] // your .se1, .txt, .cat, .eph files here
 pub struct EmbeddedEphemeris;
 
+// Global synchronization primitives
+static INIT_ONCE: Once = Once::new();
+static EXTRACTION_COMPLETE: AtomicBool = AtomicBool::new(false);
+static EPHEMERIS_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
+
 /// Ensures that embedded ephemeris files are extracted and the Swiss Ephemeris library is configured.
 ///
 /// - Extracts files from `EmbeddedEphemeris` into a permanent cache directory (if not already present).
@@ -68,19 +74,61 @@ pub struct EmbeddedEphemeris;
 ///
 /// # Behavior
 /// - Extraction occurs only once per cache folder (i.e., "once forever").
+/// - Thread-safe: multiple threads can call this simultaneously without race conditions.
 /// - Always sets the library path; safe to call multiple times.
 /// - Chooses a permanent location: system cache dir if available, or `target/ephemeris` as fallback.
 ///
 /// # Errors
 /// Returns `EphemerisError` if directory creation, file writing, validation, or version check fails.
 pub fn ensure_ephemeris_initialized() -> Result<()> {
+    // Fast path: if already initialized, just set the path and return
+    if EXTRACTION_COMPLETE.load(Ordering::Acquire) {
+        let path_guard = EPHEMERIS_PATH.lock().unwrap();
+        if let Some(ref path) = *path_guard {
+            set_ephemeris_path_only(path)?;
+            return Ok(());
+        }
+    }
+
+    // Slow path: ensure extraction happens exactly once across all threads
+    let mut extraction_result = Ok(());
+
+    INIT_ONCE.call_once(|| {
+        extraction_result = perform_extraction_and_validation();
+    });
+
+    // Check the result of the extraction
+    extraction_result?;
+
+    // At this point, extraction is complete. Set the path for this thread.
+    let path_guard = EPHEMERIS_PATH.lock().unwrap();
+    if let Some(ref path) = *path_guard {
+        set_ephemeris_path_only(path)?;
+    }
+
+    Ok(())
+}
+
+/// Performs the actual file extraction and validation (called only once).
+fn perform_extraction_and_validation() -> Result<()> {
     // Choose a permanent, shared cache location
-    let target = std::env::var("EPHEMERIS_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("./app/ephemeris"));
+    let target: PathBuf = if let Ok(ephem_dir) = std::env::var("EPHEMERIS_DIR")
+    {
+        PathBuf::from(ephem_dir)
+    } else {
+        dirs_next::cache_dir()
+            .unwrap_or_else(|| PathBuf::from("target"))
+            .join("ephemeris")
+    };
+
+    eprintln!("[DEBUG] Using ephemeris directory: {:?}", target);
 
     // Extract embedded files only if the folder doesn't exist yet
     if !target.exists() {
+        eprintln!(
+            "[DEBUG] Creating ephemeris directory and extracting files..."
+        );
+
         fs::create_dir_all(&target).map_err(|e| {
             EphemerisError::DirectoryCreateFailed(target.clone(), e)
         })?;
@@ -99,33 +147,34 @@ pub fn ensure_ephemeris_initialized() -> Result<()> {
                 fs::write(&path, &file.data).map_err(|e| {
                     EphemerisError::FileWriteFailed(path.clone(), e)
                 })?;
+                eprintln!("[DEBUG] Extracted file: {:?}", path);
             }
         }
+    } else {
+        eprintln!(
+            "[DEBUG] Ephemeris directory already exists, skipping extraction"
+        );
     }
 
-    // Always set the Swiss Ephemeris path (idempotent)
-    initialize_ephemeris_with_path(&target)?;
+    // Validate the directory contents
+    validate_ephemeris_directory(&target)?;
+
+    // Store the path and mark extraction as complete
+    {
+        let mut path_guard = EPHEMERIS_PATH.lock().unwrap();
+        *path_guard = Some(target);
+    }
+
+    EXTRACTION_COMPLETE.store(true, Ordering::Release);
+    eprintln!(
+        "[DEBUG] Ephemeris extraction and validation completed successfully"
+    );
 
     Ok(())
 }
 
-/// Initializes Swiss Ephemeris by validating the extracted files and setting the library path.
-///
-/// Checks that:
-/// - `path` exists and is valid UTF-8,
-/// - contains at least one `.se1` file (binary ephemeris) and one `.txt` file (supporting data),
-/// - matches the expected Swiss Ephemeris version.
-///
-/// Calls `set_ephe_path(path)` to configure the native library.
-///
-/// # Errors
-/// Returns `EphemerisError` if path does not exist, files are missing, or version mismatches.
-pub fn initialize_ephemeris_with_path<P: AsRef<Path>>(path: P) -> Result<()> {
-    let path = path.as_ref();
-    let path_str = path
-        .to_str()
-        .ok_or_else(|| EphemerisError::InvalidPath(path.to_path_buf()))?;
-
+/// Validates that the ephemeris directory contains the required files.
+fn validate_ephemeris_directory(path: &Path) -> Result<()> {
     if !path.exists() {
         eprintln!("[DEBUG] Ephemeris path does not exist: {:?}", path);
         return Err(EphemerisError::PathDoesNotExist(path.to_path_buf()));
@@ -135,20 +184,24 @@ pub fn initialize_ephemeris_with_path<P: AsRef<Path>>(path: P) -> Result<()> {
     let mut has_se1_files = false;
     let mut has_txt_files = false;
 
-    eprintln!("[DEBUG] Scanning ephemeris directory: {:?}", path);
+    eprintln!("[DEBUG] Validating ephemeris directory: {:?}", path);
 
-    // Scan directory for files
     for entry in fs::read_dir(path).map_err(|e| {
         EphemerisError::DirectoryReadFailed(path.to_path_buf(), e)
     })? {
         if let Ok(entry) = entry {
             let p = entry.path();
-            eprintln!("[DEBUG] Found file: {:?}", p);
 
             if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
                 match ext {
-                    "se1" => has_se1_files = true,
-                    "txt" => has_txt_files = true,
+                    "se1" => {
+                        has_se1_files = true;
+                        eprintln!("[DEBUG] Found .se1 file: {:?}", p);
+                    },
+                    "txt" => {
+                        has_txt_files = true;
+                        eprintln!("[DEBUG] Found .txt file: {:?}", p);
+                    },
                     _ => {},
                 }
             }
@@ -164,13 +217,20 @@ pub fn initialize_ephemeris_with_path<P: AsRef<Path>>(path: P) -> Result<()> {
         return Err(EphemerisError::FilesMissing(path.to_path_buf()));
     }
 
+    eprintln!("[DEBUG] Directory validation successful");
+    Ok(())
+}
+
+/// Sets the ephemeris path and validates version (called for each thread).
+fn set_ephemeris_path_only(path: &Path) -> Result<()> {
+    let path_str = path
+        .to_str()
+        .ok_or_else(|| EphemerisError::InvalidPath(path.to_path_buf()))?;
+
     eprintln!("[DEBUG] Setting ephemeris path to: {:?}", path_str);
     set_ephe_path(path_str);
 
-    // (Optional) If you want JPL DE file instead of Swiss .se1 files:
-    // crate::set_jpl_file("/path/to/jpl/de431.eph");
-
-    // Reuse your version function
+    // Validate version
     let found_version = version();
     let expected_version = "2.10.03";
     if found_version != expected_version {
@@ -179,10 +239,22 @@ pub fn initialize_ephemeris_with_path<P: AsRef<Path>>(path: P) -> Result<()> {
             found: found_version,
         });
     }
-    eprintln!(
-        "[DEBUG] Found version: {}, Expected: {}",
-        found_version, expected_version
-    );
+
+    Ok(())
+}
+
+/// Initializes Swiss Ephemeris by validating the extracted files and setting the library path.
+///
+/// This is the original function, kept for backward compatibility but now just validates
+/// an existing directory and sets the path.
+///
+/// # Errors
+/// Returns `EphemerisError` if path does not exist, files are missing, or version mismatches.
+pub fn initialize_ephemeris_with_path<P: AsRef<Path>>(path: P) -> Result<()> {
+    let path = path.as_ref();
+
+    validate_ephemeris_directory(path)?;
+    set_ephemeris_path_only(path)?;
 
     Ok(())
 }
@@ -194,6 +266,7 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use std::path::Path;
+    use std::thread;
     use tempfile::tempdir;
 
     /// Helper: write an arbitrary dummy file inside `dir` with `name`.
@@ -216,11 +289,6 @@ mod tests {
         write_dummy(dir, "dummy.se1").unwrap();
         write_dummy(dir, "somefile.txt").unwrap();
 
-        // Set expected version to current actual version so the version check passes.
-        env::set_var("SWE_EXPECTED_VERSION", version());
-
-        // This test uses initialize_ephemeris_with_path directly (no OnceCell),
-        // so no interaction with ensure_ephemeris_initialized()'s OnceCell.
         let res = initialize_ephemeris_with_path(dir);
         assert!(res.is_ok(), "expected OK for directory with .se1 and .txt");
     }
@@ -232,8 +300,6 @@ mod tests {
 
         // only txt present
         write_dummy(dir, "only.txt").unwrap();
-
-        env::set_var("SWE_EXPECTED_VERSION", version());
 
         let res = initialize_ephemeris_with_path(dir);
         assert!(matches!(res, Err(EphemerisError::FilesMissing(_))));
@@ -247,43 +313,41 @@ mod tests {
         // only se1 present
         write_dummy(dir, "only.se1").unwrap();
 
-        env::set_var("SWE_EXPECTED_VERSION", version());
-
         let res = initialize_ephemeris_with_path(dir);
         assert!(matches!(res, Err(EphemerisError::FilesMissing(_))));
     }
 
     #[test]
-    fn ensure_ephemeris_initialized_is_idempotent_and_uses_envdir() {
-        // Create a unique temp dir for extraction and keep it alive for the test.
-        // We set SWE_EPHE_EXTRACT_DIR before the first call so OnceCell uses it.
+    fn test_concurrent_initialization() {
+        // This test simulates multiple threads calling ensure_ephemeris_initialized
+        // simultaneously to verify thread safety
         let tmp = tempdir().unwrap();
         let extract_dir = tmp.path().to_path_buf();
-        env::set_var("SWE_EPHE_EXTRACT_DIR", &extract_dir);
+        env::set_var("EPHEMERIS_DIR", &extract_dir);
 
-        // Also override expected version to match the runtime version.
-        env::set_var("SWE_EXPECTED_VERSION", version());
-
-        // First call: extracts embedded files (if any) and initializes.
-        // If your EmbeddedEphemeris folder is empty at compile time, this still
-        // runs initialize_ephemeris_with_path on the dir and will fail if
-        // there are no .se1/.txt files — so in CI you might want to include
-        // embedded files or write test files into extract_dir before invoking.
-        //
-        // For the sake of unit-testing, we will create the minimal required
-        // .se1 and .txt files inside `extract_dir` before calling.
+        // Pre-create the required files
         write_dummy(&extract_dir, "dummy.se1").unwrap();
         write_dummy(&extract_dir, "dummy.txt").unwrap();
 
-        // Keep `tmp` alive (do not drop it) while OnceCell caches the path.
-        // First initialization should succeed.
-        let first = ensure_ephemeris_initialized();
-        assert!(first.is_ok(), "first ensure should succeed");
+        let handles: Vec<_> = (0..10)
+            .map(|i| {
+                thread::spawn(move || {
+                    println!("Thread {} starting initialization", i);
+                    let result = ensure_ephemeris_initialized();
+                    println!(
+                        "Thread {} finished with result: {:?}",
+                        i,
+                        result.is_ok()
+                    );
+                    result
+                })
+            })
+            .collect();
 
-        // Calling again should be a no-op and succeed.
-        let second = ensure_ephemeris_initialized();
-        assert!(second.is_ok(), "second ensure should also succeed");
-
-        // tmp will be cleaned up when test function returns and tmp is dropped.
+        // Wait for all threads and check results
+        for (i, handle) in handles.into_iter().enumerate() {
+            let result = handle.join().unwrap();
+            assert!(result.is_ok(), "Thread {} failed: {:?}", i, result);
+        }
     }
 }
