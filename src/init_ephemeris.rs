@@ -69,17 +69,11 @@ static EPHEMERIS_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 /// Ensures that embedded ephemeris files are extracted and the Swiss Ephemeris library is configured.
 ///
-/// - Extracts files from `EmbeddedEphemeris` into a permanent cache directory (if not already present).
-/// - Configures the Swiss Ephemeris library to use the extracted files via `initialize_ephemeris_with_path()`.
-///
-/// # Behavior
-/// - Extraction occurs only once per cache folder (i.e., "once forever").
-/// - Thread-safe: multiple threads can call this simultaneously without race conditions.
-/// - Always sets the library path; safe to call multiple times.
-/// - Chooses a permanent location: system cache dir if available, or `target/ephemeris` as fallback.
-///
-/// # Errors
-/// Returns `EphemerisError` if directory creation, file writing, validation, or version check fails.
+/// Priority order:
+/// 1. `EPHEMERIS_PATH` (or `EPHEMERIS_DIR`) environment variable – if the directory
+///    exists and contains the required files, it is used immediately.
+/// 2. Otherwise extract the embedded files into a permanent cache directory
+///    (system cache dir or `target/ephemeris`).
 pub fn ensure_ephemeris_initialized() -> Result<()> {
     // Fast path: if already initialized, just set the path and return
     if EXTRACTION_COMPLETE.load(Ordering::Acquire) {
@@ -90,36 +84,60 @@ pub fn ensure_ephemeris_initialized() -> Result<()> {
         }
     }
 
-    // Slow path: ensure extraction happens exactly once across all threads
+    // Slow path: ensure extraction / path resolution happens exactly once
     let mut extraction_result = Ok(());
-
     INIT_ONCE.call_once(|| {
         extraction_result = perform_extraction_and_validation();
     });
 
-    // Check the result of the extraction
     extraction_result?;
 
-    // At this point, extraction is complete. Set the path for this thread.
+    // At this point the path is stored. Set it for this thread.
     let path_guard = EPHEMERIS_PATH.lock().unwrap();
     if let Some(ref path) = *path_guard {
         set_ephemeris_path_only(path)?;
     }
-
     Ok(())
 }
 
-/// Performs the actual file extraction and validation (called only once).
+/// Performs the actual path resolution / extraction / validation (called only once).
 fn perform_extraction_and_validation() -> Result<()> {
-    // Choose a permanent, shared cache location
-    let target: PathBuf = if let Ok(ephem_dir) = std::env::var("EPHEMERIS_DIR")
-    {
-        PathBuf::from(ephem_dir)
-    } else {
-        dirs_next::cache_dir()
-            .unwrap_or_else(|| PathBuf::from("target"))
-            .join("ephemeris")
-    };
+    // ------------------------------------------------------------------
+    // 1. Prefer the user-supplied directory (EPHEMERIS_PATH or EPHEMERIS_DIR)
+    // ------------------------------------------------------------------
+    if let Some(user_path) = resolve_user_ephemeris_path() {
+        eprintln!(
+            "[DEBUG] Trying user-provided ephemeris path: {:?}",
+            user_path
+        );
+
+        match validate_ephemeris_directory(&user_path) {
+            Ok(()) => {
+                // Good path – store it and we are done (no extraction needed)
+                {
+                    let mut path_guard = EPHEMERIS_PATH.lock().unwrap();
+                    *path_guard = Some(user_path);
+                }
+                EXTRACTION_COMPLETE.store(true, Ordering::Release);
+                eprintln!("[DEBUG] Using user-provided ephemeris directory");
+                return Ok(());
+            },
+            Err(e) => {
+                eprintln!(
+                    "[DEBUG] User-provided path is invalid ({:?}), falling back to embedded extraction",
+                    e
+                );
+                // continue to extraction logic below
+            },
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // 2. Fall back to cache directory + embedded extraction
+    // ------------------------------------------------------------------
+    let target: PathBuf = dirs_next::cache_dir()
+        .unwrap_or_else(|| PathBuf::from("target"))
+        .join("ephemeris");
 
     eprintln!("[DEBUG] Using ephemeris directory: {:?}", target);
 
@@ -128,7 +146,6 @@ fn perform_extraction_and_validation() -> Result<()> {
         eprintln!(
             "[DEBUG] Creating ephemeris directory and extracting files..."
         );
-
         fs::create_dir_all(&target).map_err(|e| {
             EphemerisError::DirectoryCreateFailed(target.clone(), e)
         })?;
@@ -164,13 +181,19 @@ fn perform_extraction_and_validation() -> Result<()> {
         let mut path_guard = EPHEMERIS_PATH.lock().unwrap();
         *path_guard = Some(target);
     }
-
     EXTRACTION_COMPLETE.store(true, Ordering::Release);
     eprintln!(
         "[DEBUG] Ephemeris extraction and validation completed successfully"
     );
-
     Ok(())
+}
+
+/// Resolve the user-supplied ephemeris directory.
+/// Prefers `EPHEMERIS_PATH`, falls back to `EPHEMERIS_DIR` for compatibility.
+fn resolve_user_ephemeris_path() -> Option<PathBuf> {
+    std::env::var_os("EPHEMERIS_PATH")
+        .or_else(|| std::env::var_os("EPHEMERIS_DIR"))
+        .map(PathBuf::from)
 }
 
 /// Validates that the ephemeris directory contains the required files.
