@@ -140,6 +140,9 @@ pub fn calculate_houses_extended_with_speeds(
         return Err(err_msg);
     }
 
+    tracing::debug!("All House cusps: {:?}", cusps);
+    tracing::debug!("All House cusp speeds: {:?}", cusp_speeds);
+
     let house_cusps: [f64; 12] = cusps[1..]
         .try_into()
         .expect("Failed to extract house cusps");
