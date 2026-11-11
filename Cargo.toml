@@ -5,11 +5,14 @@ authors = [
     "Stéphane Bressani <s.bressani@bluewin.ch> extended by Agnese akapne01",
 ]
 links = "libswe"
-edition = "2018"
+edition = "2021"
 documentation = "https://docs.rs/libswe-sys/0.1.43/libswe_sys/"
 repository = "https://github.com/stephaneworkspace/libswe-sys"
 description = "Astrology lib connected to the C lib Swiss ephemeris (just the c lib)"
 license-file = "LICENSE"
+
+[workspace]
+resolver = "2"
 
 [dependencies]
 reqwest = { version = "0.12.14", features = ["blocking", "json"] }
@@ -22,14 +25,16 @@ strum_macros = "0.27.1"
 libmath = "0.2.1"
 num-derive = "0.4.2"
 num-traits = "0.2"
-assert_approx_eq = "1.1.0"
 chrono = "0.4.40"
-json = "0.12.4"
 rust-embed = "8.7.2"
 thiserror = "2.0.16"
-tempfile = "3.21.0"
 dirs-next = "2.0"
 tracing = "0.1.41"
 
 [build-dependencies]
 cc = { version = "1.2.16", features = ["parallel"] }
+
+[dev-dependencies]
+assert_approx_eq = "1.1.0"
+json = "0.12.4"
+tempfile = "3.21.0"

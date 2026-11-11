@@ -1,6 +1,8 @@
-use std::ffi::{CStr, CString};
-
-use crate::{raw::swe_nod_aps_ut, sweconst::Bodies};
+use crate::{
+    raw::swe_nod_aps_ut,
+    sweconst::Bodies,
+    swerust::ffi_util::{buf_to_string, new_err_buf},
+};
 
 /// Mean Nodes are available only for planets Moon, Mercury to Neptune.
 /// Pluto and Asteroids always return True Nodes, even if Means nodes are selected.
@@ -49,14 +51,13 @@ pub fn get_planetary_apsides_and_nodes(
     iflag: i32,
     method: i32,
 ) -> Result<ApsidesAndNodesResult, String> {
-    let mut xnasc = [0.0; 6]; // North Node
-    let mut xndsc = [0.0; 6]; // South Node
-    let mut xperi = [0.0; 6]; // Perihelion
-    let mut xaphe = [0.0; 6]; // Aphelion
-    let mut serr = [0; 255]; // Error buffer
-    let p_serr = serr.as_mut_ptr();
+    let mut xnasc = [0.0_f64; 6]; // North Node
+    let mut xndsc = [0.0_f64; 6]; // South Node
+    let mut xperi = [0.0_f64; 6]; // Perihelion
+    let mut xaphe = [0.0_f64; 6]; // Aphelion
+    let mut serr = new_err_buf(); // 256 bytes
 
-    unsafe {
+    let status = unsafe {
         swe_nod_aps_ut(
             jd,
             body as i32,
@@ -66,16 +67,17 @@ pub fn get_planetary_apsides_and_nodes(
             xndsc.as_mut_ptr(),
             xperi.as_mut_ptr(),
             xaphe.as_mut_ptr(),
-            p_serr,
-        );
+            serr.as_mut_ptr(),
+        )
+    };
 
-        let s_serr = CString::from(CStr::from_ptr(p_serr))
-            .to_str()
-            .unwrap()
-            .to_string();
-        if !s_serr.is_empty() {
-            return Err(s_serr);
-        }
+    let msg = buf_to_string(&serr);
+    if status < 0 || !msg.is_empty() {
+        return Err(if msg.is_empty() {
+            format!("swe_nod_aps_ut failed with status {status}")
+        } else {
+            msg
+        });
     }
 
     Ok(ApsidesAndNodesResult {
@@ -114,6 +116,7 @@ pub fn get_planetary_apsides_and_nodes(
         body,
     })
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -24,50 +24,39 @@ pub struct SplitDegResult {
     pub min: i32,
     pub sec: i32,
     pub cdegfr: f64,
-    //isgn: i32,
     pub sign: Signs,
-    pub result: f64,
 }
 
 /// float to deg
 /// isgn return me always 0 ? I compute this value manualy
 pub fn split_deg(ddeg: f64, roundflag: i32) -> SplitDegResult {
-    // Convert deg to sign 30°
     let sign_calc = round::floor(ddeg / 30.0, 0) as usize;
     let house_calc = round::floor(ddeg / 30.0, 0);
-    let long_30 = (house_calc as f64 * 30.0) - ddeg;
-    // Call c library
-    let mut deg = [0; 1];
-    let mut min = [0; 1];
-    let mut sec = [0; 1];
-    let mut cdegfr = [0.0; 1];
-    let mut isgn = [0; 1];
-    let result: f64 = unsafe {
-        let p_deg = deg.as_mut_ptr();
-        let p_min = min.as_mut_ptr();
-        let p_sec = sec.as_mut_ptr();
-        let p_cdegfr = cdegfr.as_mut_ptr();
-        let p_isgn = isgn.as_mut_ptr();
+    let long_30 = (house_calc * 30.0) - ddeg;
+
+    let mut deg: i32 = 0;
+    let mut min: i32 = 0;
+    let mut sec: i32 = 0;
+    let mut cdegfr: f64 = 0.0;
+    let mut isgn: i32 = 0;
+    unsafe {
         raw::swe_split_deg(
-            long_30, roundflag, p_deg, p_min, p_sec, p_cdegfr, p_isgn,
-        )
-    };
-    let print = format!(
-        "{}{}{:02}{}{:02}",
-        i32::abs(deg[0]),
-        "°",
-        min[0],
-        "'",
-        sec[0],
-    );
+            long_30,
+            roundflag,
+            &mut deg,
+            &mut min,
+            &mut sec,
+            &mut cdegfr,
+            &mut isgn,
+        );
+    }
+    let print = format!("{}°{:02}'{:02}", deg.abs(), min, sec);
     SplitDegResult {
         print,
-        deg: deg[0],
-        min: min[0],
-        sec: sec[0],
-        cdegfr: cdegfr[0],
-        // isgn: isgn[0],
+        deg,
+        min,
+        sec,
+        cdegfr,
         sign: Signs::iter().nth(sign_calc).unwrap_or(Signs::Aries),
-        result,
     }
 }

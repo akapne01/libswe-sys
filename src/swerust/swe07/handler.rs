@@ -1,6 +1,6 @@
-use crate::raw::{ self, swe_rise_trans };
+use crate::raw::{self, swe_rise_trans};
 use crate::sweconst::Bodies;
-use std::ffi::{ CStr, CString };
+use crate::swerust::ffi_util::{buf_to_string, new_err_buf};
 use std::ptr;
 
 pub struct CalculationMethodsRiseTransit;
@@ -10,7 +10,7 @@ impl CalculationMethodsRiseTransit {
     pub const SET: i32 = 2;
     pub const UPPER_MERIDIAN_TRANSIT: i32 = 4; // upper meridian transit (southern for northern geo. latitudes)
     pub const LOWER_MERIDIAN_TRANSIT: i32 = 8; // lower meridian transit (northern, below the horizon)
-    // Below calculation methods can be used in conjunction with RISE & SET.
+                                               // Below calculation methods can be used in conjunction with RISE & SET.
     pub const DISC_CENTER: i32 = 256; // for rising or setting of disc center
     pub const DISC_BOTTOM: i32 = 8192; // for rising or setting of lower limb of disc
     pub const GEOCENTRIC: i32 = 128; // use geocentric (rather than topocentric) position of object and ignore its ecliptic latitude
@@ -19,8 +19,8 @@ impl CalculationMethodsRiseTransit {
     pub const NAUTICAL_TWILIGHT: i32 = 2048; // in order to calculate nautical twilight
     pub const ASTRONOMICAL_TWILIGHT: i32 = 4096; // in order to calculate astronomical twilight
     pub const FIXED_DISC_SIZE: i32 = 16 * 1024; // neglect the effect of distance on disc size
-    // Consider Sun rising and setting when the center of solar disk is exactly over horizon. Also
-    // ignores atmospheric refraction and uses geocentric rather than topocentric calculations.
+                                                // Consider Sun rising and setting when the center of solar disk is exactly over horizon. Also
+                                                // ignores atmospheric refraction and uses geocentric rather than topocentric calculations.
     pub const HINDU_RISING: i32 = 256 + 512 + 128; // Composition of DISC_CENTER + NO_REFRACTION + GEOCENTRIC risings according to Hindu astrology
 }
 
@@ -39,27 +39,28 @@ pub struct PhenoUtResult {
 }
 
 pub fn pheno_ut(tjd_ut: f64, ipl: Bodies, iflag: i32) -> PhenoUtResult {
-    let mut attr: [f64; 20] = [0.0; 20];
-    let mut serr = [0; 255];
-    let result = unsafe {
-        let p_attr = attr.as_mut_ptr();
-        let p_serr = serr.as_mut_ptr();
-        let status = raw::swe_pheno_ut(tjd_ut, ipl as i32, iflag, p_attr, p_serr);
-        let s_serr = CString::from(CStr::from_ptr(p_serr)).to_str().unwrap().to_string();
-        PhenoUtResult {
-            phase_angle: attr[0],
-            phase_illuminated: attr[1],
-            elongation_of_planet: attr[2],
-            apparent_dimaeter_of_disc: attr[3],
-            apparent_magnitude: attr[4],
-            serr: s_serr,
-            status,
-        }
+    let mut attr = [0.0_f64; 20];
+    let mut serr = new_err_buf();
+    let status = unsafe {
+        raw::swe_pheno_ut(
+            tjd_ut,
+            ipl as i32,
+            iflag,
+            attr.as_mut_ptr(),
+            serr.as_mut_ptr(),
+        )
     };
-    result
+    PhenoUtResult {
+        phase_angle: attr[0],
+        phase_illuminated: attr[1],
+        elongation_of_planet: attr[2],
+        apparent_dimaeter_of_disc: attr[3],
+        apparent_magnitude: attr[4],
+        serr: buf_to_string(&serr),
+        status,
+    }
 }
 
-/// Calculates rising, setting and meridian transits
 pub fn rise_trans(
     tjd_ut: f64,
     planet: Bodies,
@@ -67,15 +68,13 @@ pub fn rise_trans(
     longitude: f64,
     altitude: f64,
     calculation_flag: i32,
-    calculation_method: i32
+    calculation_method: i32,
 ) -> Result<f64, String> {
-    let geopos = [longitude, latitude, altitude]; // Observer's position
-    let mut tret = 0.0; // Will store rise and set times
-    let error_buffer = [0i8; 256]; // Error buffer
+    let geopos = [longitude, latitude, altitude];
+    let mut tret = 0.0_f64;
+    let mut serr = new_err_buf();
 
-    unsafe {
-        let pointer_to_error_buffer = error_buffer.as_ptr() as *mut i8;
-
+    let status = unsafe {
         swe_rise_trans(
             tjd_ut,
             planet as i32,
@@ -86,18 +85,18 @@ pub fn rise_trans(
             0.0, // estimated by underlying C function
             0.0, // estimated by underlying C function
             &mut tret,
-            pointer_to_error_buffer
-        );
+            serr.as_mut_ptr(),
+        )
+    };
 
-        let error_buffer_str = CString::from(CStr::from_ptr(pointer_to_error_buffer))
-            .to_str()
-            .unwrap()
-            .to_string();
-        if !error_buffer_str.is_empty() {
-            return Err(error_buffer_str);
-        }
+    let msg = buf_to_string(&serr);
+    if status < 0 || !msg.is_empty() {
+        return Err(if msg.is_empty() {
+            format!("swe_rise_trans failed with status {status}")
+        } else {
+            msg
+        });
     }
-
     Ok(tret)
 }
 
@@ -109,10 +108,12 @@ pub fn calculate_rise_and_set(
     longitude: f64,
     altitude: f64,
     calculation_flag: i32,
-    additional_calculation_methods: i32
+    additional_calculation_methods: i32,
 ) -> Result<(f64, f64), String> {
-    let rise_flag = CalculationMethodsRiseTransit::RISE + additional_calculation_methods;
-    let set_flag = CalculationMethodsRiseTransit::SET + additional_calculation_methods;
+    let rise_flag =
+        CalculationMethodsRiseTransit::RISE + additional_calculation_methods;
+    let set_flag =
+        CalculationMethodsRiseTransit::SET + additional_calculation_methods;
 
     let rising_result = rise_trans(
         julian_day_utc,
@@ -121,7 +122,7 @@ pub fn calculate_rise_and_set(
         longitude,
         altitude,
         calculation_flag,
-        rise_flag
+        rise_flag,
     );
 
     let setting_result = rise_trans(
@@ -131,21 +132,21 @@ pub fn calculate_rise_and_set(
         longitude,
         altitude,
         calculation_flag,
-        set_flag
+        set_flag,
     );
 
     let rising_jd = match rising_result {
         Ok(rising) => rising,
         Err(err) => {
             return Err(err);
-        }
+        },
     };
 
     let setting_jd = match setting_result {
         Ok(setting) => setting,
         Err(err) => {
             return Err(err);
-        }
+        },
     };
 
     Ok((rising_jd, setting_jd))
@@ -155,7 +156,7 @@ mod tests {
     use crate::{
         constants::CalculationFlags,
         sweconst::Calendar,
-        swerust::handler_swe08::{ julian_to_dt_with_offset, utc_to_jd },
+        swerust::handler_swe08::{julian_to_dt_with_offset, utc_to_jd},
     };
 
     use super::*;
@@ -177,7 +178,7 @@ mod tests {
             longitude,
             altitude,
             calculation_flag,
-            calculation_method
+            calculation_method,
         );
 
         assert!(result.is_ok());
@@ -203,11 +204,17 @@ mod tests {
             longitude,
             altitude,
             calculation_flag,
-            additional_calculation_methods
+            additional_calculation_methods,
         );
 
-        println!("Rising: {}", julian_to_dt_with_offset(2460748.688380363, 2.0).unwrap());
-        println!("Setting: {}", julian_to_dt_with_offset(2460749.182606328, 2.0).unwrap());
+        println!(
+            "Rising: {}",
+            julian_to_dt_with_offset(2460748.688380363, 2.0).unwrap()
+        );
+        println!(
+            "Setting: {}",
+            julian_to_dt_with_offset(2460749.182606328, 2.0).unwrap()
+        );
 
         assert!(actual_result.is_ok());
         assert_eq!(actual_result.unwrap(), expected_result);

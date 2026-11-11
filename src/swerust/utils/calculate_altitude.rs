@@ -1,36 +1,65 @@
-use reqwest;
-use reqwest::blocking;
+use reqwest::blocking::Client;
 use serde_json::Value;
 use std::error::Error;
+use std::time::Duration;
+
+/// Extracts the elevation (meters above sea level) from an Open-Elevation response.
+fn parse_elevation(body: &Value) -> Result<f64, Box<dyn Error>> {
+    body["results"][0]["elevation"]
+        .as_f64()
+        .ok_or_else(|| "elevation missing from Open-Elevation response".into())
+}
 
 /// Gets altitude for a given latitude and longitude.
-/// Result seems to be returned meters above sea level
-pub fn get_altitude(latitude: f64, longitude: f64) -> Result<f64, Box<dyn Error>> {
+/// Result is returned in meters above sea level.
+pub fn get_altitude(
+    latitude: f64,
+    longitude: f64,
+) -> Result<f64, Box<dyn Error>> {
     let url = format!(
         "https://api.open-elevation.com/api/v1/lookup?locations={},{}",
-        latitude,
-        longitude
+        latitude, longitude
     );
 
-    // Perform a blocking HTTP request
-    let response = blocking::get(&url)?.json::<Value>()?;
+    let client = Client::builder().timeout(Duration::from_secs(10)).build()?;
+    let body = client
+        .get(&url)
+        .send()?
+        .error_for_status()?
+        .json::<Value>()?;
 
-    let elevation = response["results"][0]["elevation"].as_f64().unwrap_or(0.0);
-    Ok(elevation)
+    parse_elevation(&body)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
-    pub fn test_get_altitude() {
-        let latitude = 43.084128;
-        let longitude = 25.5919228;
+    fn test_parse_elevation_ok() {
+        let body = json!({
+            "results": [{ "latitude": 43.084128, "longitude": 25.5919228, "elevation": 265.0 }]
+        });
+        assert_eq!(parse_elevation(&body).unwrap(), 265.0);
+    }
 
-        let result = get_altitude(latitude, longitude);
+    #[test]
+    fn test_parse_elevation_missing_is_error() {
+        let body = json!({ "results": [] });
+        assert!(parse_elevation(&body).is_err());
+    }
 
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), 265.0);
+    /// Hits the real API, so it can fail when the service is down or its data changes.
+    /// Run manually with: cargo test -p libswe-sys -- --ignored
+    #[test]
+    #[ignore = "network: calls api.open-elevation.com"]
+    fn test_get_altitude_live() {
+        let altitude = get_altitude(43.084128, 25.5919228).unwrap();
+        assert!(
+            (altitude - 265.0).abs() < 5.0,
+            "{}",
+            "unexpected altitude: {altitude}"
+        );
     }
 }

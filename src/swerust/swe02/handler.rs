@@ -1,5 +1,6 @@
 use crate::raw;
-use std::ffi::{CStr, CString};
+use crate::swerust::ffi_util::{buf_to_string, AS_MAXCH};
+use std::ffi::CString;
 use std::os::raw::c_char;
 
 /*
@@ -37,24 +38,18 @@ pub fn set_jpl_file(fname: &str) {
 
 /// Get version of swiss ephemeris
 pub fn version() -> String {
-    // Get the version
-    let mut version = [0; 255];
-    let v = unsafe {
-        let p = version.as_mut_ptr();
-        raw::swe_version(p);
-        CStr::from_ptr(p)
-    };
-    CString::from(v).to_str().unwrap().to_string()
+    let mut buf = [0 as c_char; AS_MAXCH];
+    unsafe {
+        raw::swe_version(buf.as_mut_ptr());
+    }
+    buf_to_string(&buf)
 }
 
-/// Get librarx path dll
+/// Get library path (dll)
 pub fn get_library_path() -> String {
-    // Get dll path
-    let mut dll_path = [0; 255];
-    let dll = unsafe {
-        let p = dll_path.as_mut_ptr();
-        raw::swe_get_library_path(p);
-        CStr::from_ptr(p)
-    };
-    CString::from(dll).to_str().unwrap().to_string()
+    let mut buf = [0 as c_char; AS_MAXCH];
+    unsafe {
+        raw::swe_get_library_path(buf.as_mut_ptr());
+    }
+    buf_to_string(&buf)
 }

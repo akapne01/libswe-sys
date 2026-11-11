@@ -1,7 +1,8 @@
 use crate::raw::{self, swe_get_ayanamsa_name, swe_set_sid_mode};
 use crate::sweconst::Bodies;
 use crate::swerust;
-use std::ffi::{c_double, c_int, CStr, CString};
+use crate::swerust::ffi_util::{buf_to_string, new_err_buf, SE_MAX_STNAME};
+use std::ffi::{c_char, c_double, c_int, CStr, CString};
 
 /*
  * 3. The functions swe_calc_ut() and swe_calc()
@@ -52,49 +53,51 @@ pub struct FixStarResult {
     pub speed_longitude: f64,
     pub speed_latitude: f64,
     pub speed_distance_au: f64,
-    pub star_name: String, // name returned by swe_fixstar
-    pub serr: String,      // error message if any
-    pub status: i32,       // return status from the C function
+    /// name returned by swe_fixstar
+    pub star_name: String,
+    /// Error message
+    pub serr: String,
+    /// return status from the C function
+    pub status: i32,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct FixStarMagResult {
     pub magnitude: f64,
     pub star_name: String,
-    pub serr: String, // error message if any
-    pub status: i32,  // return status from the C function
+    /// Error message
+    pub serr: String,
+    /// return status from the C function
+    pub status: i32,
 }
 
-/// Shared helper function
+/// Copies `star` into a NUL-terminated buffer of SE_MAX_STNAME chars.
+fn star_name_buffer(star: &str) -> [c_char; SE_MAX_STNAME] {
+    let mut buf = [0 as c_char; SE_MAX_STNAME];
+    // `unwrap` panics if `star` contains an interior NUL byte (same as before).
+    let c_star = CString::new(star).unwrap();
+    for (i, &b) in c_star.as_bytes().iter().enumerate().take(SE_MAX_STNAME - 1)
+    {
+        buf[i] = b as c_char; // last byte always stays 0
+    }
+    buf
+}
+
 fn call_fixstar_mag_fn(
-    f: unsafe extern "C" fn(*mut i8, *mut f64, *mut i8) -> c_int,
+    f: unsafe extern "C" fn(*mut c_char, *mut f64, *mut c_char) -> c_int,
     star: &str,
 ) -> FixStarMagResult {
     let mut mag: f64 = 0.0;
-    let mut serr = [0i8; 256];
-    let mut star_buf = [0i8; 41];
-
-    // Copy star name into buffer
-    let c_star = CString::new(star).unwrap();
-    let bytes = c_star.as_bytes_with_nul();
-    for (i, &b) in bytes.iter().enumerate().take(40) {
-        star_buf[i] = b as i8;
-    }
+    let mut serr = new_err_buf();
+    let mut star_buf = star_name_buffer(star);
 
     let status =
         unsafe { f(star_buf.as_mut_ptr(), &mut mag, serr.as_mut_ptr()) };
 
-    let star_name = unsafe { CStr::from_ptr(star_buf.as_ptr()) }
-        .to_string_lossy()
-        .into_owned();
-    let serr = unsafe { CStr::from_ptr(serr.as_ptr()) }
-        .to_string_lossy()
-        .into_owned();
-
     FixStarMagResult {
         magnitude: mag,
-        star_name,
-        serr,
+        star_name: buf_to_string(&star_buf),
+        serr: buf_to_string(&serr),
         status,
     }
 }
@@ -110,21 +113,20 @@ pub fn fixstar2_mag(star: &str) -> FixStarMagResult {
 }
 
 fn call_fixstar_fn(
-    f: unsafe extern "C" fn(*mut i8, f64, i32, *mut f64, *mut i8) -> i32,
+    f: unsafe extern "C" fn(
+        *mut c_char,
+        f64,
+        i32,
+        *mut f64,
+        *mut c_char,
+    ) -> i32,
     star: &str,
     tjd: f64,
     iflag: i32,
 ) -> FixStarResult {
-    let mut xx: [f64; 6] = [0.0; 6];
-    let mut serr = [0i8; 256];
-    let mut star_buf = [0i8; 41];
-
-    // Copy star name into buffer
-    let c_star = CString::new(star).unwrap();
-    let bytes = c_star.as_bytes_with_nul();
-    for (i, &b) in bytes.iter().enumerate().take(40) {
-        star_buf[i] = b as i8;
-    }
+    let mut xx = [0.0_f64; 6];
+    let mut serr = new_err_buf();
+    let mut star_buf = star_name_buffer(star);
 
     let status = unsafe {
         f(
@@ -136,13 +138,6 @@ fn call_fixstar_fn(
         )
     };
 
-    let star_name = unsafe { CStr::from_ptr(star_buf.as_ptr()) }
-        .to_string_lossy()
-        .into_owned();
-    let serr = unsafe { CStr::from_ptr(serr.as_ptr()) }
-        .to_string_lossy()
-        .into_owned();
-
     FixStarResult {
         longitude: xx[0],
         latitude: xx[1],
@@ -150,8 +145,8 @@ fn call_fixstar_fn(
         speed_longitude: xx[3],
         speed_latitude: xx[4],
         speed_distance_au: xx[5],
-        star_name,
-        serr,
+        star_name: buf_to_string(&star_buf),
+        serr: buf_to_string(&serr),
         status,
     }
 }
@@ -177,46 +172,38 @@ pub fn fixstar2(star: &str, tjd_et: f64, iflag: i32) -> FixStarResult {
 }
 
 pub fn calc_ut(tjd_ut: f64, ipl: Bodies, iflag: i32) -> CalcUtResult {
-    let mut xx: [f64; 6] = [0.0; 6];
-    let mut serr = [0; 255];
-    let result;
-    result = unsafe {
-        let p_xx = xx.as_mut_ptr();
-        let p_serr = serr.as_mut_ptr();
-        let status;
-        if ipl == Bodies::SouthNode {
-            status = raw::swe_calc_ut(
-                tjd_ut,
-                Bodies::TrueNode as i32,
-                iflag,
-                p_xx,
-                p_serr,
-            );
-        } else {
-            status = raw::swe_calc_ut(tjd_ut, ipl as i32, iflag, p_xx, p_serr);
-        }
-        let s_serr = CString::from(CStr::from_ptr(p_serr))
-            .to_str()
-            .unwrap()
-            .to_string();
-        if ipl == Bodies::SouthNode {
-            xx[0] += 180.0;
-            if xx[0] >= 360.0 {
-                xx[0] -= 360.0;
-            }
-        }
-        CalcUtResult {
-            longitude: xx[0],
-            latitude: xx[1],
-            distance_au: xx[2],
-            speed_longitude: xx[3],
-            speed_latitude: xx[4],
-            speed_distance_au: xx[5],
-            serr: s_serr,
-            status,
-        }
+    let mut xx = [0.0_f64; 6];
+    let mut serr = new_err_buf();
+    let body = if ipl == Bodies::SouthNode {
+        Bodies::TrueNode
+    } else {
+        ipl
     };
-    result
+
+    let status = unsafe {
+        raw::swe_calc_ut(
+            tjd_ut,
+            body as i32,
+            iflag,
+            xx.as_mut_ptr(),
+            serr.as_mut_ptr(),
+        )
+    };
+
+    if ipl == Bodies::SouthNode {
+        xx[0] = (xx[0] + 180.0).rem_euclid(360.0);
+    }
+
+    CalcUtResult {
+        longitude: xx[0],
+        latitude: xx[1],
+        distance_au: xx[2],
+        speed_longitude: xx[3],
+        speed_latitude: xx[4],
+        speed_distance_au: xx[5],
+        serr: buf_to_string(&serr),
+        status,
+    }
 }
 
 pub fn calc_ut_declination(
@@ -224,45 +211,33 @@ pub fn calc_ut_declination(
     body: Bodies,
     iflag: i32,
 ) -> DeclinationResult {
-    let mut xx: [f64; 6] = [0.0; 6];
-    let mut serr = [0; 255];
-    let result;
-    result = unsafe {
-        let p_xx = xx.as_mut_ptr();
-        let p_serr = serr.as_mut_ptr();
-        let status;
-        if body == Bodies::SouthNode {
-            status = raw::swe_calc_ut(
-                tjd_ut,
-                Bodies::TrueNode as i32,
-                iflag,
-                p_xx,
-                p_serr,
-            );
-        } else {
-            status = raw::swe_calc_ut(tjd_ut, body as i32, iflag, p_xx, p_serr);
-        }
-        let s_serr = CString::from(CStr::from_ptr(p_serr))
-            .to_str()
-            .unwrap()
-            .to_string();
-        if body == Bodies::SouthNode {
-            xx[0] += 180.0;
-            if xx[0] >= 360.0 {
-                xx[0] -= 360.0;
-            }
-        }
-        DeclinationResult {
-            declination: xx[1],
-            serr: s_serr,
-            status,
-        }
+    let mut xx = [0.0_f64; 6];
+    let mut serr = new_err_buf();
+    let calc_body = if body == Bodies::SouthNode {
+        Bodies::TrueNode
+    } else {
+        body
     };
-    result
+
+    let status = unsafe {
+        raw::swe_calc_ut(
+            tjd_ut,
+            calc_body as i32,
+            iflag,
+            xx.as_mut_ptr(),
+            serr.as_mut_ptr(),
+        )
+    };
+
+    DeclinationResult {
+        declination: xx[1],
+        serr: buf_to_string(&serr),
+        status,
+    }
 }
 
 /// Fortuna Part
-/// Only lng is valid, the speed is unknow because this object is calculated
+/// Only lng is valid, the speed is unknown because this object is calculated
 pub fn calc_ut_fp(
     tjd_ut: f64,
     geolat: f64,
@@ -271,97 +246,76 @@ pub fn calc_ut_fp(
     iflag: i32,
 ) -> CalcUtResult {
     let ipl = Bodies::FortunaPart;
-    let mut xx: [f64; 6] = [0.0; 6];
-    let mut serr = [0; 255];
-    let result = unsafe {
-        let p_xx = xx.as_mut_ptr();
-        let p_serr = serr.as_mut_ptr();
-        let status = raw::swe_calc_ut(tjd_ut, ipl as i32, iflag, p_xx, p_serr);
-        let s_serr = CString::from(CStr::from_ptr(p_serr))
-            .to_str()
-            .unwrap()
-            .to_string();
-        let mut xx_sun: [f64; 6] = [0.0; 6];
-        let mut xx_moon: [f64; 6] = [0.0; 6];
-        let p_xx_sun = xx_sun.as_mut_ptr();
-        let p_serr_sun = serr.as_mut_ptr();
-        let _status_sun = raw::swe_calc_ut(
+    let mut xx = [0.0_f64; 6];
+    let mut serr = new_err_buf();
+    let status = unsafe {
+        raw::swe_calc_ut(
+            tjd_ut,
+            ipl as i32,
+            iflag,
+            xx.as_mut_ptr(),
+            serr.as_mut_ptr(),
+        )
+    };
+    let s_serr = buf_to_string(&serr);
+
+    let mut xx_sun = [0.0_f64; 6];
+    let mut xx_moon = [0.0_f64; 6];
+    let mut serr_sun = new_err_buf();
+    let mut serr_moon = new_err_buf();
+    unsafe {
+        raw::swe_calc_ut(
             tjd_ut,
             Bodies::Sun as i32,
             iflag,
-            p_xx_sun,
-            p_serr_sun,
+            xx_sun.as_mut_ptr(),
+            serr_sun.as_mut_ptr(),
         );
-        let p_xx_moon = xx_moon.as_mut_ptr();
-        let p_serr_moon = serr.as_mut_ptr();
-        let _status_moon = raw::swe_calc_ut(
+        raw::swe_calc_ut(
             tjd_ut,
             Bodies::Moon as i32,
             iflag,
-            p_xx_moon,
-            p_serr_moon,
+            xx_moon.as_mut_ptr(),
+            serr_moon.as_mut_ptr(),
         );
-        let _s_serr_sun = CString::from(CStr::from_ptr(p_serr_sun))
-            .to_str()
-            .unwrap()
-            .to_string();
-        let _s_serr_moon = CString::from(CStr::from_ptr(p_serr_moon))
-            .to_str()
-            .unwrap()
-            .to_string();
-        let result_houses =
-            swerust::handler_swe14::houses(tjd_ut, geolat, geolong, hsys);
-        let asc_lon = result_houses.cusps[1];
-        let mc_lon = result_houses.cusps[10];
-        let mc_lat = 0.0;
-        let compute_sun = eq_coords(xx_sun[0], xx_sun[1]);
-        let compute_mc = eq_coords(mc_lon, mc_lat);
-        let sw_is_diurnal = is_above_horizon(
-            compute_sun.0,
-            compute_sun.1,
-            compute_mc.0,
-            compute_mc.1,
-        );
-        /*println!(
-            "sw_is_diurnal: {}asc: {}moon: {}sun: {}",
-            sw_is_diurnal.clone(),
-            asc_lon.clone(),
-            xx_moon[0].clone(),
-            xx_sun[0].clone()
-        );*/
-        let mut lon = if sw_is_diurnal {
-            asc_lon + xx_moon[0] - xx_sun[0]
-        } else {
-            asc_lon + xx_sun[0] - xx_moon[0]
-        };
-        let mut done = false;
-        while !done {
-            if lon < 0.0 {
-                lon += 360.0;
-            } else {
-                done = true;
-            }
-        }
-        done = false;
-        while !done {
-            if lon >= 360.0 {
-                lon -= 360.0;
-            } else {
-                done = true;
-            }
-        }
-        CalcUtResult {
-            longitude: lon,
-            latitude: xx[1],
-            distance_au: xx[2],
-            speed_longitude: xx[3],
-            speed_latitude: xx[4],
-            speed_distance_au: xx[5],
-            serr: s_serr,
-            status,
-        }
+    }
+
+    let result_houses =
+        swerust::handler_swe14::houses(tjd_ut, geolat, geolong, hsys);
+    let asc_lon = result_houses.cusps[1];
+    let mc_lon = result_houses.cusps[10];
+    let mc_lat = 0.0;
+    let compute_sun = eq_coords(xx_sun[0], xx_sun[1]);
+    let compute_mc = eq_coords(mc_lon, mc_lat);
+    let sw_is_diurnal = is_above_horizon(
+        compute_sun.0,
+        compute_sun.1,
+        compute_mc.0,
+        compute_mc.1,
+    );
+
+    let mut lon = if sw_is_diurnal {
+        asc_lon + xx_moon[0] - xx_sun[0]
+    } else {
+        asc_lon + xx_sun[0] - xx_moon[0]
     };
-    result
+    while lon < 0.0 {
+        lon += 360.0;
+    }
+    while lon >= 360.0 {
+        lon -= 360.0;
+    }
+
+    CalcUtResult {
+        longitude: lon,
+        latitude: xx[1],
+        distance_au: xx[2],
+        speed_longitude: xx[3],
+        speed_latitude: xx[4],
+        speed_distance_au: xx[5],
+        serr: s_serr,
+        status,
+    }
 }
 
 /// Converts from ecliptical to equatorial coordinates.
@@ -433,12 +387,12 @@ fn closest_distance(angle1: f64, angle2: f64) -> f64 {
 }
 
 /// Normalize angle between -180° and 180°
-fn znorm(mut angle: f64) -> f64 {
-    angle %= 360.0;
-    if angle <= 180.0 {
-        angle
+fn znorm(angle: f64) -> f64 {
+    let a = angle.rem_euclid(360.0);
+    if a > 180.0 {
+        a - 360.0
     } else {
-        angle - 180.0
+        a
     }
 }
 

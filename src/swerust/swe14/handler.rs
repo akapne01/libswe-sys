@@ -1,7 +1,7 @@
 use crate::raw::{self, swe_houses_ex2};
+use crate::swerust::ffi_util::{buf_to_string, new_err_buf};
 use std::convert::TryInto;
-// use crate::sweconst::HouseSystem;
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString};
 use std::os::raw::c_int;
 
 /*
@@ -91,6 +91,14 @@ pub fn houses_with_flag(
     }
 }
 
+/// swephexp.h: `SE_NASCMC`. The C library treats `ascmc` / `ascmc_speed` as
+/// `double[10]`. Only the first 8 entries are meaningful, but all 10 may be written.
+const SE_NASCMC: usize = 10;
+
+/// swe_houses_ex2 needs 13 cusp slots (index 0 is unused). 37 is only needed for
+/// Gauquelin ('G'), which is rejected below, but the extra room is harmless.
+const SE_NCUSPS_BUF: usize = 37;
+
 pub fn calculate_houses_extended_with_speeds(
     jd_ut: f64,
     iflag: i32,
@@ -101,13 +109,12 @@ pub fn calculate_houses_extended_with_speeds(
     if hsys == 'G' {
         return Err("GAUQUELIN_SECTORS is not implemented.".to_string());
     }
-    let mut cusps = [0.0; 13]; // House cusps
-    let mut ascmc = [0.0; 8]; // Angular points (Asc, MC, etc.)
-    let mut cusp_speeds = [0.0; 13]; // Motion of house cusps
-    let mut ascmc_speeds = [0.0; 8]; // Motion of angular points
-    let hsys_int = hsys as i32;
 
-    let mut serr = vec![0u8; 256]; // Error buffer
+    let mut cusps = [0.0_f64; SE_NCUSPS_BUF];
+    let mut ascmc = [0.0_f64; SE_NASCMC];
+    let mut cusp_speeds = [0.0_f64; SE_NCUSPS_BUF];
+    let mut ascmc_speeds = [0.0_f64; SE_NASCMC];
+    let mut serr = new_err_buf(); // [c_char; 256]
 
     let res = unsafe {
         swe_houses_ex2(
@@ -115,46 +122,48 @@ pub fn calculate_houses_extended_with_speeds(
             iflag,
             lat,
             lon,
-            hsys_int,
+            hsys as c_int,
             cusps.as_mut_ptr(),
             ascmc.as_mut_ptr(),
             cusp_speeds.as_mut_ptr(),
             ascmc_speeds.as_mut_ptr(),
-            serr.as_mut_ptr() as *mut c_char,
+            serr.as_mut_ptr(),
         )
     };
 
     if res == -1 {
-        let err_msg = unsafe {
-            CStr::from_ptr(serr.as_ptr() as *const c_char)
-                .to_string_lossy()
-                .trim_end_matches('\0')
-                .to_string()
-        };
-
-        if err_msg.is_empty() {
-            return Err(
-                "Unknown error occurred while calculating houses".to_string()
-            );
-        }
-        return Err(err_msg);
+        let err_msg = buf_to_string(&serr);
+        return Err(if err_msg.is_empty() {
+            "Unknown error occurred while calculating houses".to_string()
+        } else {
+            err_msg
+        });
     }
 
-    tracing::debug!("All House cusps: {:?}", cusps);
-    tracing::debug!("All House cusp speeds: {:?}", cusp_speeds);
+    tracing::debug!("All House cusps: {:?}", &cusps[..13]);
+    tracing::debug!("All House cusp speeds: {:?}", &cusp_speeds[..13]);
 
-    let house_cusps: [f64; 12] = cusps[1..]
+    // Index 0 of cusps / cusp_speeds is unused by Swiss Ephemeris; houses are 1..=12.
+    let house_cusps: [f64; 12] = cusps[1..13]
         .try_into()
-        .expect("Failed to extract house cusps");
-    let house_speeds: [f64; 12] = cusp_speeds[1..]
+        .map_err(|e| format!("Failed to extract house cusps: {e}"))?;
+    let house_speeds: [f64; 12] = cusp_speeds[1..13]
         .try_into()
-        .expect("Failed to extract cusp speeds");
+        .map_err(|e| format!("Failed to extract cusp speeds: {e}"))?;
+
+    // Keep the public struct at 8 entries; drop the 2 reserved ones.
+    let ascmc8: [f64; 8] = ascmc[..8]
+        .try_into()
+        .map_err(|e| format!("Failed to extract ascmc: {e}"))?;
+    let ascmc_speeds8: [f64; 8] = ascmc_speeds[..8]
+        .try_into()
+        .map_err(|e| format!("Failed to extract ascmc speeds: {e}"))?;
 
     Ok(HouseCalculationResult {
         cusps: house_cusps,
-        ascmc,
+        ascmc: ascmc8,
         cusp_speeds: house_speeds,
-        ascmc_speeds,
+        ascmc_speeds: ascmc_speeds8,
     })
 }
 
@@ -162,13 +171,10 @@ pub fn calculate_houses_extended_with_speeds(
 mod tests {
     use super::*;
     use crate::{
-        constants::{
-            Ayanamsha, CalculationFlags, HouseSystems, EPHEMERIS_PATH,
-        },
+        constants::{Ayanamsha, CalculationFlags, HouseSystems},
         ensure_ephemeris_initialized,
         sweconst::Calendar,
         swerust::{
-            handler_swe02::set_ephe_path,
             handler_swe03::set_sidereal_mode,
             handler_swe08::{utc_time_zone, utc_to_jd},
         },
@@ -180,7 +186,6 @@ mod tests {
         let lng = 25.5919228;
         let date = get_test_date_time();
         let house_system = HouseSystems::PLACIDUS;
-        set_ephe_path(EPHEMERIS_PATH);
         let flag = CalculationFlags::SPEED_PRECISION;
 
         let expected_result = HousesResult {
@@ -251,7 +256,6 @@ mod tests {
         let lng = 25.5919228;
         let date = get_test_date_time();
         let house_system = HouseSystems::PLACIDUS;
-        set_ephe_path(EPHEMERIS_PATH);
 
         let expected_result = HouseCalculationResult {
             cusps: [
@@ -279,7 +283,7 @@ mod tests {
                 202.55507848219912,
             ],
             cusp_speeds: [
-                0.0,
+                507.3817187152055,
                 362.56618362266704,
                 326.3715539865318,
                 344.12778754362796,
@@ -352,7 +356,7 @@ mod tests {
                 182.15279751446607,
             ],
             cusp_speeds: [
-                0.0,
+                507.3817187152055,
                 362.56618362266704,
                 326.3715539865318,
                 344.12778754362796,
@@ -406,6 +410,62 @@ mod tests {
             println!("Error message: {}", err_msg);
             assert!(!err_msg.is_empty(), "Error message should not be empty");
         }
+    }
+
+    #[test]
+    fn test_extended_houses_invariants() {
+        let _ = ensure_ephemeris_initialized();
+        let jd = 2449298.885420433;
+        let r =
+            calculate_houses_extended_with_speeds(jd, 0, 51.5074, -0.1278, 'P')
+                .unwrap();
+
+        // Cusp 1 is the ascendant for Placidus
+        assert!((r.cusps[0] - r.ascmc[0]).abs() < 1e-9);
+        // Cusp 7 is opposite cusp 1
+        let opp = (r.cusps[0] + 180.0).rem_euclid(360.0);
+        assert!((r.cusps[6] - opp).abs() < 1e-9);
+        // Speeds follow the same rules
+        assert!((r.cusp_speeds[0] - r.ascmc_speeds[0]).abs() < 1e-9);
+        assert!((r.cusp_speeds[0] - r.cusp_speeds[6]).abs() < 1e-9);
+    }
+
+    #[test]
+    fn swe_houses_ex2_writes_ten_ascmc_entries() {
+        use crate::swerust::ffi_util::new_err_buf;
+
+        let _ = ensure_ephemeris_initialized();
+
+        // Deliberately oversized buffers, filled with NaN so we can see what C wrote.
+        let mut cusps = [f64::NAN; 37];
+        let mut ascmc = [f64::NAN; 16];
+        let mut cusp_speeds = [f64::NAN; 37];
+        let mut ascmc_speeds = [f64::NAN; 16];
+        let mut serr = new_err_buf();
+
+        let res = unsafe {
+            swe_houses_ex2(
+                2449298.885420433,
+                0,
+                51.5074,
+                -0.1278,
+                'P' as i32,
+                cusps.as_mut_ptr(),
+                ascmc.as_mut_ptr(),
+                cusp_speeds.as_mut_ptr(),
+                ascmc_speeds.as_mut_ptr(),
+                serr.as_mut_ptr(),
+            )
+        };
+        assert_ne!(res, -1, "swe_houses_ex2 failed");
+
+        let written = ascmc.iter().take_while(|v| !v.is_nan()).count();
+        let written_speeds =
+            ascmc_speeds.iter().take_while(|v| !v.is_nan()).count();
+        println!("ascmc entries written: {written}, ascmc_speeds entries written: {written_speeds}");
+
+        assert_eq!(written, 10); // confirms indices 8 and 9 are written
+        assert_eq!(written_speeds, 10);
     }
 
     pub fn get_test_date_time() -> f64 {

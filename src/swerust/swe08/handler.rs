@@ -1,14 +1,21 @@
-use chrono::{ DateTime, FixedOffset, NaiveDate, TimeZone, Utc };
+use chrono::{DateTime, FixedOffset, NaiveDate, TimeZone, Utc};
 
-use crate::raw::{ self, swe_revjul };
+use crate::raw::{self, swe_revjul};
 use crate::sweconst::Calendar;
-use std::ffi::{ CStr, CString };
+use crate::swerust::ffi_util::{buf_to_string, new_err_buf};
 
 /*
  * 8. Date and time conversion functions
  */
-pub fn julday(year: i32, month: i32, day: i32, hour: f64, calendar: Calendar) -> f64 {
-    let result: f64 = unsafe { raw::swe_julday(year, month, day, hour, calendar as i32) };
+pub fn julday(
+    year: i32,
+    month: i32,
+    day: i32,
+    hour: f64,
+    calendar: Calendar,
+) -> f64 {
+    let result: f64 =
+        unsafe { raw::swe_julday(year, month, day, hour, calendar as i32) };
     result
 }
 
@@ -30,7 +37,7 @@ pub fn utc_time_zone(
     hour: i32,
     min: i32,
     sec: f64,
-    timezone: f64
+    timezone: f64,
 ) -> UtcTimeZoneResult {
     let mut year_out = [0; 2];
     let mut month_out = [0; 2];
@@ -58,7 +65,7 @@ pub fn utc_time_zone(
             p_day_out,
             p_hour_out,
             p_min_out,
-            p_sec_out
+            p_sec_out,
         );
         UtcTimeZoneResult {
             year: year_out,
@@ -78,6 +85,7 @@ pub struct UtcToJdResult {
     pub err: String, // To do in other file same struct
     pub result: i32,
 }
+
 pub fn utc_to_jd(
     year: i32,
     month: i32,
@@ -85,14 +93,12 @@ pub fn utc_to_jd(
     hour: i32,
     min: i32,
     sec: f64,
-    calendar: Calendar
+    calendar: Calendar,
 ) -> UtcToJdResult {
-    let mut dret = [0.0; 2];
-    let mut serr = [0; 255];
-    unsafe {
-        let p_dret = dret.as_mut_ptr();
-        let p_serr = serr.as_mut_ptr();
-        let result = raw::swe_utc_to_jd(
+    let mut dret = [0.0_f64; 2];
+    let mut serr = new_err_buf();
+    let result = unsafe {
+        raw::swe_utc_to_jd(
             year,
             month,
             day,
@@ -100,16 +106,15 @@ pub fn utc_to_jd(
             min,
             sec,
             calendar as i32,
-            p_dret,
-            p_serr
-        );
-        let s_serr = CString::from(CStr::from_ptr(p_serr)).to_str().unwrap().to_string();
-        UtcToJdResult {
-            julian_day_et: dret[0],
-            julian_day_ut: dret[1],
-            err: s_serr,
-            result,
-        }
+            dret.as_mut_ptr(),
+            serr.as_mut_ptr(),
+        )
+    };
+    UtcToJdResult {
+        julian_day_et: dret[0],
+        julian_day_ut: dret[1],
+        err: buf_to_string(&serr),
+        result,
     }
 }
 
@@ -127,7 +132,7 @@ pub fn julian_to_utc(jd: f64) -> DateTime<Utc> {
 
 pub fn julian_to_dt_with_offset(
     jd: f64,
-    timezone_offset: f64
+    timezone_offset: f64,
 ) -> Result<DateTime<FixedOffset>, String> {
     let mut year = 0;
     let mut month = 0;
@@ -137,7 +142,13 @@ pub fn julian_to_dt_with_offset(
     unsafe {
         swe_revjul(jd, 1, &mut year, &mut month, &mut day, &mut hour);
     }
-    convert_to_dt_with_offset(year, month as u32, day as u32, hour, timezone_offset)
+    convert_to_dt_with_offset(
+        year,
+        month as u32,
+        day as u32,
+        hour,
+        timezone_offset,
+    )
 }
 
 pub fn convert_to_dt_with_offset(
@@ -145,17 +156,17 @@ pub fn convert_to_dt_with_offset(
     month: u32,
     day: u32,
     hour: f64,
-    timezone_offset: f64
+    timezone_offset: f64,
 ) -> Result<DateTime<FixedOffset>, String> {
     // Extract integer and fractional part of the hour
     let hour_int = hour as u32;
     let minute = ((hour - (hour_int as f64)) * 60.0) as u32;
-    let second = (((hour - (hour_int as f64)) * 60.0 - (minute as f64)) * 60.0) as u32;
+    let second =
+        (((hour - (hour_int as f64)) * 60.0 - (minute as f64)) * 60.0) as u32;
 
     // Create a NaiveDateTime (which is timezone-independent)
-    let naive_date = NaiveDate::from_ymd_opt(year, month, day).ok_or_else(||
-        "Invalid date".to_string()
-    )?;
+    let naive_date = NaiveDate::from_ymd_opt(year, month, day)
+        .ok_or_else(|| "Invalid date".to_string())?;
     let naive_datetime = naive_date
         .and_hms_opt(hour_int, minute, second)
         .ok_or_else(|| "Invalid time".to_string())?;
@@ -164,18 +175,23 @@ pub fn convert_to_dt_with_offset(
     let utc_datetime = Utc.from_utc_datetime(&naive_datetime);
 
     // Convert to local time using the provided offset (timezone_offset in hours)
-    let timezone = FixedOffset::east_opt((timezone_offset * 3600.0) as i32).ok_or_else(||
-        "Invalid timezone offset".to_string()
-    )?;
+    let timezone = FixedOffset::east_opt((timezone_offset * 3600.0) as i32)
+        .ok_or_else(|| "Invalid timezone offset".to_string())?;
 
     Ok(utc_datetime.with_timezone(&timezone))
 }
 
-pub fn convert_to_utc_time(year: i32, month: i32, day: i32, hour: f64) -> DateTime<Utc> {
+pub fn convert_to_utc_time(
+    year: i32,
+    month: i32,
+    day: i32,
+    hour: f64,
+) -> DateTime<Utc> {
     // Extract integer and fractional part of the hour
     let hour_int = hour as u32;
     let minute = ((hour - (hour_int as f64)) * 60.0) as u32;
-    let second = (((hour - (hour_int as f64)) * 60.0 - (minute as f64)) * 60.0) as u32;
+    let second =
+        (((hour - (hour_int as f64)) * 60.0 - (minute as f64)) * 60.0) as u32;
 
     // Create a NaiveDateTime (which is timezone-independent)
     let naive_date = NaiveDate::from_ymd_opt(year, month as u32, day as u32)
@@ -212,7 +228,8 @@ mod tests {
             sec: [59.99999999999872, 0.0],
         };
 
-        let actual_result = utc_time_zone(year, month, day, hour, min, sec, timezone_offset);
+        let actual_result =
+            utc_time_zone(year, month, day, hour, min, sec, timezone_offset);
 
         assert_eq!(actual_result, expected_result);
     }
@@ -232,7 +249,8 @@ mod tests {
             result: 0,
         };
 
-        let actual_result = utc_to_jd(year, month, day, hour, min, sec, Calendar::Gregorian);
+        let actual_result =
+            utc_to_jd(year, month, day, hour, min, sec, Calendar::Gregorian);
 
         assert_eq!(actual_result, expected_result);
     }
@@ -243,14 +261,9 @@ mod tests {
         let month = 3;
         let day = 14;
         let hour = 10.1001;
-        let expected_result = Utc.with_ymd_and_hms(
-            year,
-            month as u32,
-            day as u32,
-            10,
-            6,
-            0
-        ).unwrap();
+        let expected_result = Utc
+            .with_ymd_and_hms(year, month as u32, day as u32, 10, 6, 0)
+            .unwrap();
 
         let actual_result = convert_to_utc_time(year, month, day, hour);
 

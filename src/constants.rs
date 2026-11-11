@@ -1,8 +1,5 @@
 use crate::swerust::handler_swe14::house_name;
 
-pub static EPHEMERIS_PATH: &str =
-    "/home/kaliorion/dev/sandbox/swisseph/ephe/www.astro.com/ftp/swisseph/ephe";
-
 // Calculation options: https://www.astro.com/swisseph/swephprg.htm
 pub struct CalculationFlags;
 
@@ -23,7 +20,7 @@ impl CalculationFlags {
     pub const RADIAN_COORDINATES: i32 = 8192; // coordinates in radians, not degrees
     pub const BARYCENTRIC_POSITIONS: i32 = 16384; // barycentric positions
     pub const TOPOCENTRIC_POSITIONS: i32 = 32768; // topocentric positions
-    pub const TROPICAL_POSITIONS: i32 = 0; // Default 
+    pub const TROPICAL_POSITIONS: i32 = 0; // Default
     pub const SIDEREAL_POSITIONS: i32 = 65536; // sidereal positions
     pub const ICRS: i32 = 131072; // ICRS (DE406 reference frame)
     pub const JPL_HORIZONS: i32 = 262144; // reproduce JPL Horizons 1962 - today to 0.002 arcsec.

@@ -127,17 +127,17 @@ extern "C" {
     /// The astronomical sunset is defined as the moment the upper limb of the solar disk disappears below the horizon.
     /// The function swe_rise_trans() by default follows this definition of astronomical sunrises and sunsets.
     pub fn swe_rise_trans(
-        tjd_ut: f64,         // Julian day number
-        ipl: i32,            // Planet ID (SE_SUN, SE_MOON, etc.)
-        starname: *const i8, // Empty for planets
-        epheflag: i32,       // Ephemeris flag (e.g., SEFLG_SWIEPH)
-        rsmi: i32,           // Calculation type (rise/set/transit)
-        geopos: *const f64,  // Pointer to [longitude, latitude, altitude]
-        atpress: f64,        // Atmospheric pressure
-        attemp: f64,         // Atmospheric temperature
-        tret: *mut f64,      // Output array for rise/set times
-        serr: *mut i8,       // Error message buffer (if needed)
-    ) -> i32; // Returns error code (0 if success)
+        tjd_ut: c_double,        // Julian day number
+        ipl: c_int,              // Planet ID (SE_SUN, SE_MOON, etc.)
+        starname: *const c_char, // Empty for planets
+        epheflag: c_int,         // Ephemeris flag (e.g., SEFLG_SWIEPH)
+        rsmi: c_int,             // Calculation type (rise/set/transit)
+        geopos: *const c_double, // Pointer to [longitude, latitude, altitude]
+        atpress: c_double,       // Atmospheric pressure
+        attemp: c_double,        // Atmospheric temperature
+        tret: *mut c_double,     // Output array for rise/set times
+        serr: *mut c_char,       // Error message buffer (if needed)
+    ) -> c_int; // Returns error code (0 if success)
 
     /*
      * 8. Date and time conversion functions
@@ -288,7 +288,7 @@ extern "C" {
         isec: *mut c_int,
         cdegfr: *mut c_double,
         isgn: *mut c_int,
-    ) -> c_double;
+    );
 
     /*
      * Ayanamsha Functions for sidereal mode
